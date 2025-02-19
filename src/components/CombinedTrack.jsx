@@ -194,6 +194,16 @@ function generateWaveformImage(audioBuffer, width, height) {
   return canvas.toDataURL();
 }
 
+// URL로부터 Blob을 받아 waveform 이미지 생성 (비동기)
+async function generateWaveformFromUrl(url, width, height) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioContext = new AudioContext();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  return generateWaveformImage(audioBuffer, width, height);
+}
+
 function generateTrackInfo(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -225,10 +235,13 @@ function generateTrackInfo(file) {
   });
 }
 
+// combineAudioFilesWithDelays 함수 수정: track.file이 Blob가 아니면 track.url을 사용하여 fetch함
 async function combineAudioFilesWithDelays(tracks) {
   if (tracks.length === 0) return null;
   const audioContext = new AudioContext();
-  const promises = tracks.map(track => {
+
+  // track의 오디오 데이터를 Blob으로 읽어 ArrayBuffer로 변환하는 헬퍼 함수
+  const readTrackAsArrayBuffer = (track) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -245,12 +258,29 @@ async function combineAudioFilesWithDelays(tracks) {
         if (reader.error && reader.error.name === 'AbortError') return;
         reject(reader.error);
       };
-      reader.readAsArrayBuffer(track.file);
+
+      if (track.file instanceof Blob) {
+        reader.readAsArrayBuffer(track.file);
+      } else if (track.url) {
+        fetch(track.url)
+          .then((res) => res.blob())
+          .then((blob) => {
+            reader.readAsArrayBuffer(blob);
+          })
+          .catch((err) => reject(err));
+      } else {
+        reject(new Error("No valid file or url found for track"));
+      }
     });
-  });
+  };
+
+  const promises = tracks.map(track => readTrackAsArrayBuffer(track));
   const decodedTracks = await Promise.all(promises);
+  
+  // 출력 버퍼의 채널 수는 모든 트랙 중 최대 채널 수로 결정
   const sampleRate = decodedTracks[0].buffer.sampleRate;
-  const numChannels = decodedTracks[0].buffer.numberOfChannels;
+  const numChannels = Math.max(...decodedTracks.map(dt => dt.buffer.numberOfChannels));
+
   const trackInfos = decodedTracks.map(({ buffer, delaySec }) => {
     const delaySamples = Math.floor(delaySec * sampleRate);
     const endSample = delaySamples + buffer.length;
@@ -258,10 +288,13 @@ async function combineAudioFilesWithDelays(tracks) {
   });
   const totalLength = Math.max(...trackInfos.map(info => info.endSample));
   const outputBuffer = audioContext.createBuffer(numChannels, totalLength, sampleRate);
+  
   trackInfos.forEach(({ buffer, delaySamples }) => {
     for (let channel = 0; channel < numChannels; channel++) {
       const outputData = outputBuffer.getChannelData(channel);
-      const inputData = buffer.getChannelData(channel);
+      // 해당 트랙에 채널이 없으면 채널 0의 데이터를 사용
+      const inputChannel = (channel < buffer.numberOfChannels) ? channel : 0;
+      const inputData = buffer.getChannelData(inputChannel);
       for (let i = 0; i < inputData.length; i++) {
         const idx = i + delaySamples;
         if (idx < totalLength) {
@@ -270,6 +303,7 @@ async function combineAudioFilesWithDelays(tracks) {
       }
     }
   });
+  
   const wavBuffer = audioBufferToWav(outputBuffer);
   const blob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
   return URL.createObjectURL(blob);
@@ -318,7 +352,6 @@ function generateVideoTrackInfo(file) {
 // =======================
 // 메인 CombinedTrack 컴포넌트
 // =======================
-// CombinedTrack은 상위 컴포넌트(VideoUpload 등)에서 전달받은 JSON 데이터를 prop(initialJson)으로 받습니다.
 const CombinedTrack = ({ initialJson }) => {
   const [blueTracks, setBlueTracks] = useState([]);
   const [redTracks, setRedTracks] = useState([]);
@@ -328,25 +361,120 @@ const CombinedTrack = ({ initialJson }) => {
   const [jsonText, setJsonText] = useState('');
   const [selectedBlueTrackId, setSelectedBlueTrackId] = useState(null);
 
-  const { videoURL, currentTime, setCurrentTime, duration, videoRef, setVideoURL } = useContext(VideoContext);
+  const { videoURL, currentTime, setCurrentTime, duration, videoRef, setVideoURL, uploadedVideos } = useContext(VideoContext);
   const mintContainerRef = useRef(null);
   const waveSurferRef = useRef(null);
   const sliderRef = useRef(null);
 
-  // ▶️ 만약 initialJson prop이 전달되었다면, blue track을 자동 생성하고 jsonData 설정
+  // ▶️ initialJson prop이 전달되면 자동으로 blue track 생성 및 jsonData 설정
   useEffect(() => {
     if (initialJson) {
       const newBlueTrack = {
         id: String(Date.now() + Math.random()),
         tracks: [],
         jsonData: initialJson,
-        jsonApplied: false // 아직 jsonData를 적용하지 않았음을 표시
+        jsonApplied: false
       };
       setBlueTracks([newBlueTrack]);
     }
   }, [initialJson]);
 
-  
+  // ★ 새로운 버튼 동작: VideoContext의 JSON 파일들을 처리하여
+  // 1. 배경음(blue track)  2. 화자별 TTS(blue track)  3. 비디오(red track)를 추가함.
+  const handleProcessJsonTracks = async () => {
+    if (!uploadedVideos || uploadedVideos.length === 0) {
+      alert("처리할 JSON 파일이 없습니다.");
+      return;
+    }
+    // 각 JSON 데이터마다 처리
+    for (const json of uploadedVideos) {
+      // 1. 배경음 처리 (blue track 추가)
+      const bgUrl = `http://localhost:8000/extracted_audio/${json.background_music.file_path
+        .replace(/^extracted_audio[\\/]/, '')
+        .replace(/\\/g, '/')}`;
+      const bgWidth = Math.ceil(json.video.duration * 50);
+      const bgWaveformImage = await generateWaveformFromUrl(bgUrl, bgWidth, 40);
+      const bgTrack = {
+        id: "bg-" + Date.now() + Math.random(),
+        delayPx: 0,
+        duration: json.video.duration,
+        width: bgWidth,
+        waveformImage: bgWaveformImage,
+        url: bgUrl // URL 추가
+      };
+      const newBlueTrackForBG = {
+        id: "blue-bg-" + Date.now() + Math.random(),
+        tracks: [bgTrack],
+        jsonData: json,
+        jsonApplied: true
+      };
+      setBlueTracks(prev => [...prev, newBlueTrackForBG]);
+
+      // 2. 화자별 TTS 처리 (blue track 추가)
+      const speakers = {};
+      for (const tts of json.tts_tracks) {
+        const spk = tts.speaker;
+        if (!speakers[spk]) speakers[spk] = [];
+        speakers[spk].push(tts);
+      }
+      for (const speaker of Object.keys(speakers)) {
+        const ttsTracks = speakers[speaker];
+        const ttsTrackObjects = [];
+        for (const tts of ttsTracks) {
+          const ttsUrl = `http://localhost:8000/extracted_audio/${tts.file_path
+            .replace(/^extracted_audio[\\/]/, '')
+            .replace(/\\/g, '/')}`;
+          const ttsWidth = Math.ceil(tts.duration * 50);
+          const waveformImage = await generateWaveformFromUrl(ttsUrl, ttsWidth, 40);
+          ttsTrackObjects.push({
+            id: "tts-" + tts.tts_id,
+            delayPx: Math.round(tts.start_time * 50),
+            duration: tts.duration,
+            width: ttsWidth,
+            waveformImage: waveformImage,
+            url: ttsUrl // URL 추가
+          });
+        }
+        const newBlueTrackForSpeaker = {
+          id: "blue-tts-" + speaker + "-" + Date.now() + Math.random(),
+          tracks: ttsTrackObjects,
+          speaker,
+          jsonData: json,
+          jsonApplied: true
+        };
+        setBlueTracks(prev => [...prev, newBlueTrackForSpeaker]);
+      }
+
+      // 3. 비디오 처리 (red track 추가)
+      const videoUrl = `http://localhost:8000/videos/${json.video.file_name}`;
+      let videoBlob;
+      try {
+        const videoResponse = await fetch(videoUrl);
+        if (!videoResponse.ok) {
+          throw new Error("비디오 파일을 가져오는데 실패했습니다.");
+        }
+        videoBlob = await videoResponse.blob();
+      } catch (error) {
+        console.error("비디오 파일 Blob 가져오기 오류:", error);
+        videoBlob = null;
+      }
+      const videoTrack = {
+        id: "video-" + json.video.video_id,
+        delayPx: 0,
+        duration: json.video.duration,
+        width: Math.ceil(json.video.duration * 50),
+        thumbnail: videoUrl,
+        file: videoBlob  // Blob 데이터 추가
+      };
+      const newRedTrack = {
+        id: "red-video-" + Date.now() + Math.random(),
+        tracks: [videoTrack],
+        jsonData: json,
+        jsonApplied: true
+      };
+      setRedTracks(prev => [...prev, newRedTrack]);
+    }
+  };
 
   // blue track 추가 (수동)
   const addBlueTrack = () => {
@@ -584,8 +712,7 @@ const CombinedTrack = ({ initialJson }) => {
     // 각 비디오의 red track 그룹 인덱스 배열
     const redTrackIndices = allRedTracks.map(track => track.groupIndex);
     
-    // 정렬: CompositeVideoClip은 배열의 마지막 요소가 상단에 표시되므로,
-    // 낮은 그룹 인덱스(먼저 생성된)가 최종 합성 시 더 높은 우선순위가 되도록 내림차순 정렬
+    // 정렬: 낮은 그룹 인덱스가 최종 합성 시 더 높은 우선순위가 되도록 내림차순 정렬
     const sortedArray = allRedTracks
       .map((track, index) => ({ ...track, startTime: startTimes[index], redIndex: redTrackIndices[index] }))
       .sort((a, b) => a.redIndex - b.redIndex)
@@ -652,6 +779,10 @@ const CombinedTrack = ({ initialJson }) => {
           </div>
           <div style={{ marginTop: '10px' }}>
             <button onClick={addRedTrack}>Add Red Track</button>
+          </div>
+          {/* 새로 추가한 버튼: VideoContext의 JSON 파일들을 처리 */}
+          <div style={{ marginTop: '10px' }}>
+            <button onClick={handleProcessJsonTracks}>Process JSON Tracks</button>
           </div>
           {/* 서버 병합 버튼 */}
           <div style={{ marginTop: '10px' }}>
