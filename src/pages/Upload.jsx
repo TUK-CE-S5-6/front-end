@@ -1,14 +1,10 @@
-import React, { useState, useContext } from 'react';
-import { VideoContext } from '../components/VideoContext'; // 파일 경로는 실제 위치에 맞게 수정하세요.
+// VideoUpload.jsx
+import React, { useState } from 'react';
 
-function VideoUpload() {
+function VideoUpload({ formData, setFormData }) {
   const [videoFile, setVideoFile] = useState(null);
   const [responseMessage, setResponseMessage] = useState('');
   const [localVideoData, setLocalVideoData] = useState(null); // 컴포넌트 내에서 JSON 데이터 임시 저장
-
-  // VideoContext에서 제공하는 상태 업데이트 함수들
-  // 기존의 setVideoData, setVideoURL, setAudioURL에 더해 새로 추가한 addVideoData 함수를 사용합니다.
-  const { setVideoData, setVideoURL, setAudioURL, addVideoData } = useContext(VideoContext);
 
   const handleFileChange = (e) => {
     setVideoFile(e.target.files[0]);
@@ -21,14 +17,14 @@ function VideoUpload() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', videoFile);
+    const uploadFormData = new FormData();
+    uploadFormData.append('file', videoFile);
 
     try {
       // 🎥 비디오 업로드 및 JSON 수신
-      const uploadResponse = await fetch('http://localhost:8000/upload-video', {
+      const uploadResponse = await fetch('http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/upload-video', {
         method: 'POST',
-        body: formData,
+        body: uploadFormData,
       });
 
       if (!uploadResponse.ok) {
@@ -40,16 +36,30 @@ function VideoUpload() {
       const uploadResult = await uploadResponse.json();
       setResponseMessage('업로드 성공!');
       setLocalVideoData(uploadResult);
-      setVideoData(uploadResult); // 전역 context에 업로드 결과 저장
-      addVideoData(uploadResult); // 새로 추가: JSON 데이터를 배열에 저장
 
-      // 비디오 URL과 오디오 URL을 context에 저장
-      setVideoURL(`http://localhost:8000/videos/${uploadResult.video.file_name}`);
-      setAudioURL(
-        `http://localhost:8000/extracted_audio/${uploadResult.background_music.file_path
+      // 부모(App.js)에서 관리하는 formData 업데이트하기
+      // 기존 formData에 새로운 필드를 추가하려면 기존 항목들을 복사하여 새 FormData 생성
+      const newFormData = new FormData();
+      // 기존 formData 복사 (필요한 경우)
+      for (let [key, value] of formData.entries()) {
+        newFormData.append(key, value);
+      }
+      // 업로드 결과 JSON 데이터를 문자열로 저장
+      newFormData.set('videoData', JSON.stringify(uploadResult));
+      // 비디오 URL과 오디오 URL도 업데이트
+      newFormData.set(
+        'videoURL',
+        `http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/videos/${uploadResult.video.file_name}`
+      );
+      newFormData.set(
+        'audioURL',
+        `http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${uploadResult.background_music.file_path
           .replace(/^extracted_audio[\\/]/, '')
           .replace(/\\/g, '/')}`
       );
+      // 필요한 경우 추가로 JSON 데이터를 배열에 저장하는 등 다른 작업도 가능
+      setFormData(newFormData);
+
     } catch (error) {
       console.error('Error:', error);
       setResponseMessage('오류가 발생했습니다.');
@@ -127,7 +137,7 @@ function VideoUpload() {
           {/* 🎥 비디오 실행 */}
           <video controls width="600" crossOrigin="anonymous">
             <source
-              src={`http://localhost:8000/videos/${localVideoData.video.file_name}`}
+              src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/videos/${localVideoData.video.file_name}`}
               type="video/mp4"
             />
             브라우저가 비디오 태그를 지원하지 않습니다.
@@ -147,7 +157,7 @@ function VideoUpload() {
               {/* 🎵 배경음 재생 */}
               <audio controls crossOrigin="anonymous">
                 <source
-                  src={`http://localhost:8000/extracted_audio/${localVideoData.background_music.file_path
+                  src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${localVideoData.background_music.file_path
                     .replace(/^extracted_audio[\\/]/, '')
                     .replace(/\\/g, '/')}`}
                   type="audio/mp3"
@@ -187,7 +197,7 @@ function VideoUpload() {
                   {/* 🎤 TTS 음성 재생 */}
                   <audio controls crossOrigin="anonymous">
                     <source
-                      src={`http://localhost:8000/extracted_audio/${tts.file_path
+                      src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${tts.file_path
                         .replace(/^extracted_audio[\\/]/, '')
                         .replace(/\\/g, '/')}`}
                       type="audio/mp3"

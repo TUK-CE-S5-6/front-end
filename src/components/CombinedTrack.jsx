@@ -1,63 +1,8 @@
-// CombinedTrack.jsx
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { VideoContext } from './VideoContext';
-import VideoPlaybackControl from './VideoPlaybackControl';
+import "./CombinedTrack.css";
 
-// =======================
-// 스타일 정의 (생략)
-// =======================
-const commonContainerStyle = {
-  width: '2200px',
-  overflowX: 'auto'
-};
-
-const timelineContainerStyle = {
-  width: '2200px',
-  height: '30px',
-  paddingTop: '20px',
-  borderBottom: '1px solid #000',
-  backgroundColor: '#f7f7f7',
-  position: 'sticky',
-  top: 0,
-  zIndex: 200
-};
-
-const mintBoxStyle = {
-  minWidth: '30000px',
-  height: '60px',
-  backgroundColor: '#AAF0D1'
-};
-
-const blueBoxStyle = {
-  minWidth: '30000px',
-  height: '60px',
-  backgroundColor: '#00aaff',
-  position: 'relative'
-};
-
-const redBoxStyle = {
-  minWidth: '30000px',
-  height: '100px', // 비디오 트랙 영역 높이
-  backgroundColor: '#ffcccc',
-  position: 'relative'
-};
-
-const draggableItemStyle = {
-  position: 'absolute',
-  top: '0px',
-  height: '40px',
-  backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  border: '1px solid #000',
-  textAlign: 'center',
-  lineHeight: '40px',
-  cursor: 'grab',
-  zIndex: 10
-};
-
-// =======================
-// 타임라인 헬퍼 함수들
-// =======================
+// 타임라인 헬퍼 함수
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
@@ -72,42 +17,34 @@ const renderTimelineComponent = (duration) => {
   for (let i = 0; i <= totalSec; i++) {
     const leftPos = i * 50;
     const isBigTick = i % 5 === 0;
-    const tickHeight = isBigTick ? 15 : 8;
-    const tickWidth = isBigTick ? '2px' : '1px';
     ticks.push(
       <div
         key={i}
+        className="timeline-tick"
         style={{
-          position: 'absolute',
           left: `${leftPos}px`,
-          bottom: '0px',
-          width: tickWidth,
-          height: `${tickHeight}px`,
-          backgroundColor: '#000'
+          width: isBigTick ? '2px' : '1px',
+          height: isBigTick ? '3px' : '1px'
         }}
       >
-        {isBigTick && (
-          <span
-            style={{
-              position: 'absolute',
-              top: '-20px',
-              left: '-20px',
-              fontSize: '10px',
-              fontWeight: 'bold'
-            }}
-          >
-            {formatTime(i)}
-          </span>
-        )}
+        <span
+          className="timeline-label"
+          style={{
+            top: isBigTick ? '-20px' : '-12px',
+            left: isBigTick ? '-20px' : '-12px',
+            fontSize: isBigTick ? '10px' : '8px',
+            fontWeight: isBigTick ? 'bold' : 'normal'
+          }}
+        >
+          {formatTime(i)}
+        </span>
       </div>
     );
   }
   return ticks;
 };
 
-// =======================
-// 오디오 관련 헬퍼 함수들 (기존 코드 유지)
-// =======================
+// ------------------ 오디오 헬퍼 함수들 ------------------
 function writeString(view, offset, string) {
   for (let i = 0; i < string.length; i++) {
     view.setUint8(offset + i, string.charCodeAt(i));
@@ -194,7 +131,6 @@ function generateWaveformImage(audioBuffer, width, height) {
   return canvas.toDataURL();
 }
 
-// URL로부터 Blob을 받아 waveform 이미지 생성 (비동기)
 async function generateWaveformFromUrl(url, width, height) {
   const response = await fetch(url);
   const blob = await response.blob();
@@ -235,12 +171,10 @@ function generateTrackInfo(file) {
   });
 }
 
-// combineAudioFilesWithDelays 함수 수정: track.file이 Blob가 아니면 track.url을 사용하여 fetch함
 async function combineAudioFilesWithDelays(tracks) {
   if (tracks.length === 0) return null;
   const audioContext = new AudioContext();
 
-  // track의 오디오 데이터를 Blob으로 읽어 ArrayBuffer로 변환하는 헬퍼 함수
   const readTrackAsArrayBuffer = (track) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -276,8 +210,7 @@ async function combineAudioFilesWithDelays(tracks) {
 
   const promises = tracks.map(track => readTrackAsArrayBuffer(track));
   const decodedTracks = await Promise.all(promises);
-  
-  // 출력 버퍼의 채널 수는 모든 트랙 중 최대 채널 수로 결정
+
   const sampleRate = decodedTracks[0].buffer.sampleRate;
   const numChannels = Math.max(...decodedTracks.map(dt => dt.buffer.numberOfChannels));
 
@@ -288,11 +221,10 @@ async function combineAudioFilesWithDelays(tracks) {
   });
   const totalLength = Math.max(...trackInfos.map(info => info.endSample));
   const outputBuffer = audioContext.createBuffer(numChannels, totalLength, sampleRate);
-  
+
   trackInfos.forEach(({ buffer, delaySamples }) => {
     for (let channel = 0; channel < numChannels; channel++) {
       const outputData = outputBuffer.getChannelData(channel);
-      // 해당 트랙에 채널이 없으면 채널 0의 데이터를 사용
       const inputChannel = (channel < buffer.numberOfChannels) ? channel : 0;
       const inputData = buffer.getChannelData(inputChannel);
       for (let i = 0; i < inputData.length; i++) {
@@ -303,56 +235,166 @@ async function combineAudioFilesWithDelays(tracks) {
       }
     }
   });
-  
+
   const wavBuffer = audioBufferToWav(outputBuffer);
   const blob = new Blob([new DataView(wavBuffer)], { type: 'audio/wav' });
   return URL.createObjectURL(blob);
 }
 
-// =======================
-// 비디오 관련 헬퍼 함수들
-// =======================
-function generateVideoTrackInfo(file) {
+/**
+ * 비디오 파일에서 2초 간격으로 프레임을 캡쳐하여,
+ * 각 프레임은 고정 크기 (2초×50px = 100px × thumbnailHeight)를 유지하고,
+ * 최종 결과 이미지는 영상 길이 × 50px 너비로 클리핑됩니다.
+ */
+function generateCompositeThumbnail(file, interval = 2, thumbnailHeight = 90) {
   return new Promise((resolve, reject) => {
     const videoElem = document.createElement('video');
     videoElem.preload = 'metadata';
     videoElem.muted = true;
     videoElem.src = URL.createObjectURL(file);
+
     videoElem.onloadedmetadata = () => {
-      const videoDuration = videoElem.duration;
-      const timelineWidth = Math.ceil(videoDuration * 50);
-      const videoWidth = videoElem.videoWidth;
-      const videoHeight = videoElem.videoHeight;
-      const canvas = document.createElement('canvas');
-      canvas.width = 160;
-      canvas.height = 90;
-      const ctx = canvas.getContext('2d');
-      videoElem.currentTime = 0;
-      videoElem.onseeked = () => {
-        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-        const thumbnail = canvas.toDataURL('image/png');
-        resolve({
-          id: String(Date.now() + Math.random()),
-          file,
-          delayPx: 0,
-          duration: videoDuration,
-          width: timelineWidth,
-          thumbnail,
-          videoWidth,
-          videoHeight
-        });
+      const duration = videoElem.duration;
+      const fixedFrameWidth = interval * 50; // 2초 = 100px
+      const totalFrames = Math.ceil(duration / interval);
+      const fullCanvasWidth = totalFrames * fixedFrameWidth;
+      const finalCanvasWidth = duration * 50;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = fullCanvasWidth;
+      tempCanvas.height = thumbnailHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      let currentFrame = 0;
+
+      const captureFrame = () => {
+        if (currentFrame >= totalFrames) {
+          const finalCanvas = document.createElement('canvas');
+          finalCanvas.width = finalCanvasWidth;
+          finalCanvas.height = thumbnailHeight;
+          const finalCtx = finalCanvas.getContext('2d');
+          finalCtx.drawImage(tempCanvas, 0, 0, finalCanvasWidth, thumbnailHeight, 0, 0, finalCanvasWidth, thumbnailHeight);
+          resolve(finalCanvas.toDataURL('image/png'));
+          return;
+        }
+        const time = Math.min(currentFrame * interval, duration);
+        videoElem.currentTime = time;
       };
+
+      videoElem.onseeked = () => {
+        const xPos = currentFrame * fixedFrameWidth;
+        tempCtx.drawImage(videoElem, xPos, 0, fixedFrameWidth, thumbnailHeight);
+        currentFrame++;
+        captureFrame();
+      };
+
+      captureFrame();
     };
-    videoElem.onerror = (error) => {
-      reject(error);
+
+    videoElem.onerror = (err) => {
+      reject(err);
     };
   });
 }
 
-// =======================
-// 메인 CombinedTrack 컴포넌트
-// =======================
-const CombinedTrack = ({ initialJson }) => {
+function generateVideoTrackInfo(file) {
+  return new Promise((resolve, reject) => {
+    generateCompositeThumbnail(file, 2, 90)
+      .then((compositeThumbnail) => {
+        const videoElem = document.createElement('video');
+        videoElem.preload = 'metadata';
+        videoElem.src = URL.createObjectURL(file);
+        videoElem.onloadedmetadata = () => {
+          const videoDuration = videoElem.duration;
+          const timelineWidth = Math.ceil(videoDuration * 50);
+          const videoWidth = videoElem.videoWidth;
+          const videoHeight = videoElem.videoHeight;
+          resolve({
+            id: String(Date.now() + Math.random()),
+            file,
+            delayPx: 0,
+            duration: videoDuration,
+            width: timelineWidth,
+            thumbnail: compositeThumbnail,
+            videoWidth,
+            videoHeight
+          });
+        };
+        videoElem.onerror = (error) => {
+          reject(error);
+        };
+      })
+      .catch(reject);
+  });
+}
+
+// BlueTrackOtherMenu 컴포넌트
+const BlueTrackOtherMenu = ({ onUploadAudio, onOpenJson, onDeleteGroup }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const containerRef = useRef(null);
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    setShowMenu(prev => !prev);
+  };
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  return (
+    <div ref={containerRef} className="other-button-menu">
+      <button onClick={toggleMenu}>기타</button>
+      {showMenu && (
+        <div className="menu-dropdown">
+          <ul>
+            <li onClick={onUploadAudio}>Upload Audio File</li>
+            <li onClick={onOpenJson}>입력 JSON</li>
+            <li style={{ color: 'red' }} onClick={onDeleteGroup}>그룹 삭제</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// RedTrackOtherMenu 컴포넌트
+const RedTrackOtherMenu = ({ onUploadVideo, onDeleteGroup }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const containerRef = useRef(null);
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    setShowMenu(prev => !prev);
+  };
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  return (
+    <div ref={containerRef} className="other-button-menu">
+      <button onClick={toggleMenu}>기타</button>
+      {showMenu && (
+        <div className="menu-dropdown">
+          <ul>
+            <li onClick={onUploadVideo}>Upload Video File</li>
+            <li style={{ color: 'red' }} onClick={onDeleteGroup}>그룹 삭제</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// CombinedTrack 컴포넌트
+const CombinedTrack = ({ formData, setFormData ,globalTime}) => {
   const [blueTracks, setBlueTracks] = useState([]);
   const [redTracks, setRedTracks] = useState([]);
   const [combinedAudioUrl, setCombinedAudioUrl] = useState(null);
@@ -361,129 +403,235 @@ const CombinedTrack = ({ initialJson }) => {
   const [jsonText, setJsonText] = useState('');
   const [selectedBlueTrackId, setSelectedBlueTrackId] = useState(null);
 
-  const { videoURL, currentTime, setCurrentTime, duration, videoRef, setVideoURL, uploadedVideos } = useContext(VideoContext);
+  // contextMenu 상태 (우클릭 시 트랙 삭제 옵션)
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    trackType: '',
+    groupId: null,
+    trackId: null
+  });
+
+  // WaveSurfer 및 관련 ref
   const mintContainerRef = useRef(null);
   const waveSurferRef = useRef(null);
   const sliderRef = useRef(null);
 
-  // ▶️ initialJson prop이 전달되면 자동으로 blue track 생성 및 jsonData 설정
+  // 타임라인의 duration (previewVideos 정보를 통해 계산; 기본 20초)
+  const [timelineDuration, setTimelineDuration] = useState(20);
   useEffect(() => {
-    if (initialJson) {
-      const newBlueTrack = {
-        id: String(Date.now() + Math.random()),
-        tracks: [],
-        jsonData: initialJson,
-        jsonApplied: false
-      };
-      setBlueTracks([newBlueTrack]);
+    const previewVideosStr = formData.get('previewVideos');
+    if (previewVideosStr) {
+      try {
+        const videos = JSON.parse(previewVideosStr);
+        const maxTime = Math.max(...videos.map(video => video.startTime + (video.duration !== undefined ? video.duration : 10)));
+        setTimelineDuration(maxTime);
+      } catch (error) {
+        setTimelineDuration(20);
+      }
+    } else {
+      setTimelineDuration(20);
     }
-  }, [initialJson]);
+  }, [formData]);
 
-  // ★ 새로운 버튼 동작: VideoContext의 JSON 파일들을 처리하여
-  // 1. 배경음(blue track)  2. 화자별 TTS(blue track)  3. 비디오(red track)를 추가함.
-  const handleProcessJsonTracks = async () => {
-    if (!uploadedVideos || uploadedVideos.length === 0) {
-      alert("처리할 JSON 파일이 없습니다.");
+  // 타임라인 슬라이더(내부)를 globalTime에 따라 이동시키기
+  useEffect(() => {
+    const timelineEl = document.querySelector('.timeline-container .timeline-inner');
+    if (timelineEl) {
+      timelineEl.style.transform = `translateX(-${globalTime * 50}px)`;
+    }
+  }, [globalTime]);
+
+  // JSON 입력 모달 관련 함수
+  const openJsonModal = (blueTrackId) => {
+    setSelectedBlueTrackId(blueTrackId);
+    setShowJsonModal(true);
+  };
+
+  const handleJsonCancel = () => {
+    setShowJsonModal(false);
+    setJsonText('');
+    setSelectedBlueTrackId(null);
+  };
+
+  const handleJsonSubmit = () => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      console.log("Parsed JSON:", parsed);
+      setBlueTracks(prev =>
+        prev.map(bt =>
+          bt.id === selectedBlueTrackId ? { ...bt, jsonData: parsed, jsonApplied: false } : bt
+        )
+      );
+    } catch (error) {
+      console.error("Invalid JSON:", error);
+      alert("입력한 텍스트가 유효한 JSON 형식이 아닙니다.");
       return;
     }
-    // 각 JSON 데이터마다 처리
-    for (const json of uploadedVideos) {
-      // 1. 배경음 처리 (blue track 추가)
-      const bgUrl = `http://localhost:8000/extracted_audio/${json.background_music.file_path
-        .replace(/^extracted_audio[\\/]/, '')
-        .replace(/\\/g, '/')}`;
-      const bgWidth = Math.ceil(json.video.duration * 50);
-      const bgWaveformImage = await generateWaveformFromUrl(bgUrl, bgWidth, 40);
-      const bgTrack = {
-        id: "bg-" + Date.now() + Math.random(),
-        delayPx: 0,
-        duration: json.video.duration,
-        width: bgWidth,
-        waveformImage: bgWaveformImage,
-        url: bgUrl // URL 추가
-      };
-      const newBlueTrackForBG = {
-        id: "blue-bg-" + Date.now() + Math.random(),
-        tracks: [bgTrack],
-        jsonData: json,
-        jsonApplied: true
-      };
-      setBlueTracks(prev => [...prev, newBlueTrackForBG]);
+    setShowJsonModal(false);
+    setJsonText('');
+    setSelectedBlueTrackId(null);
+  };
 
-      // 2. 화자별 TTS 처리 (blue track 추가)
-      const speakers = {};
-      for (const tts of json.tts_tracks) {
-        const spk = tts.speaker;
-        if (!speakers[spk]) speakers[spk] = [];
-        speakers[spk].push(tts);
-      }
-      for (const speaker of Object.keys(speakers)) {
-        const ttsTracks = speakers[speaker];
-        const ttsTrackObjects = [];
-        for (const tts of ttsTracks) {
-          const ttsUrl = `http://localhost:8000/extracted_audio/${tts.file_path
-            .replace(/^extracted_audio[\\/]/, '')
-            .replace(/\\/g, '/')}`;
-          const ttsWidth = Math.ceil(tts.duration * 50);
-          const waveformImage = await generateWaveformFromUrl(ttsUrl, ttsWidth, 40);
-          ttsTrackObjects.push({
-            id: "tts-" + tts.tts_id,
-            delayPx: Math.round(tts.start_time * 50),
-            duration: tts.duration,
-            width: ttsWidth,
-            waveformImage: waveformImage,
-            url: ttsUrl // URL 추가
-          });
-        }
-        const newBlueTrackForSpeaker = {
-          id: "blue-tts-" + speaker + "-" + Date.now() + Math.random(),
-          tracks: ttsTrackObjects,
-          speaker,
-          jsonData: json,
-          jsonApplied: true
-        };
-        setBlueTracks(prev => [...prev, newBlueTrackForSpeaker]);
-      }
+  // 그룹 추가 및 삭제 함수 (볼륨 기본값 100)
+  const addBlueTrack = () => {
+    setBlueTracks(prev => [...prev, { id: String(Date.now() + Math.random()), tracks: [], volume: 100 }]);
+  };
 
-      // 3. 비디오 처리 (red track 추가)
-      const videoUrl = `http://localhost:8000/videos/${json.video.file_name}`;
-      let videoBlob;
-      try {
-        const videoResponse = await fetch(videoUrl);
-        if (!videoResponse.ok) {
-          throw new Error("비디오 파일을 가져오는데 실패했습니다.");
-        }
-        videoBlob = await videoResponse.blob();
-      } catch (error) {
-        console.error("비디오 파일 Blob 가져오기 오류:", error);
-        videoBlob = null;
+  const addRedTrack = () => {
+    setRedTracks(prev => [...prev, { id: String(Date.now() + Math.random()), tracks: [], volume: 100 }]);
+  };
+
+  const handleDeleteBlueGroup = (blueTrackId) => {
+    setBlueTracks(prev => prev.filter(bt => bt.id !== blueTrackId));
+  };
+
+  const handleDeleteRedGroup = (redTrackId) => {
+    setRedTracks(prev => prev.filter(rt => rt.id !== redTrackId));
+  };
+
+  // 볼륨 변경 핸들러
+  const handleBlueTrackVolumeChange = (blueTrackId, newVolume) => {
+    setBlueTracks(prev =>
+      prev.map(bt => bt.id === blueTrackId ? { ...bt, volume: newVolume } : bt)
+    );
+  };
+
+  const handleRedTrackVolumeChange = (redTrackId, newVolume) => {
+    setRedTracks(prev =>
+      prev.map(rt => rt.id === redTrackId ? { ...rt, volume: newVolume } : rt)
+    );
+  };
+
+  const handleProcessJsonTracks = () => {
+    console.log("Process JSON Tracks 버튼 클릭");
+    alert("Process JSON Tracks 기능을 구현하세요.");
+  };
+
+  const handleSendFinalVideo = () => {
+    console.log("Send Final Video 버튼 클릭");
+    alert("최종 영상 전송 기능을 구현하세요.");
+  };
+
+  const handlePreview = async () => {
+    try {
+      if (!redTracks || redTracks.length === 0) {
+        alert("비디오 트랙이 없습니다.");
+        return;
       }
-      const videoTrack = {
-        id: "video-" + json.video.video_id,
-        delayPx: 0,
-        duration: json.video.duration,
-        width: Math.ceil(json.video.duration * 50),
-        thumbnail: videoUrl,
-        file: videoBlob  // Blob 데이터 추가
-      };
-      const newRedTrack = {
-        id: "red-video-" + Date.now() + Math.random(),
-        tracks: [videoTrack],
-        jsonData: json,
-        jsonApplied: true
-      };
-      setRedTracks(prev => [...prev, newRedTrack]);
+      const allRedTracks = redTracks.flatMap((group) =>
+        group.tracks.map((track) => ({
+          ...track,
+          startTime: track.delayPx / 50,
+        }))
+      );
+      if (allRedTracks.length === 0) {
+        alert("비디오 트랙이 없습니다.");
+        return;
+      }
+      const previewVideos = allRedTracks.map((track) => ({
+        url: track.url ? track.url : track.file ? URL.createObjectURL(track.file) : "",
+        startTime: track.startTime,
+        duration: track.duration || 0,
+      }));
+      const newFormData = new FormData();
+      for (let [key, value] of formData.entries()) {
+        newFormData.append(key, value);
+      }
+      newFormData.set('previewFlag', 'true');
+      newFormData.set('updatedAt', new Date().toISOString());
+      newFormData.set('redTrackStartTimes', JSON.stringify(allRedTracks.map((track) => track.startTime)));
+      // 볼륨 정보 추가
+      newFormData.set('blueTrackVolumes', JSON.stringify(blueTracks.map(bt => bt.volume)));
+      newFormData.set('redTrackVolumes', JSON.stringify(redTracks.map(rt => rt.volume)));
+      if (combinedAudioUrl) {
+        newFormData.set('combinedAudioUrl', combinedAudioUrl);
+      }
+      newFormData.set('previewVideos', JSON.stringify(previewVideos));
+      setFormData(newFormData);
+      const formDataObj = {};
+      for (let [key, value] of newFormData.entries()) {
+        formDataObj[key] = value instanceof Blob ? (value.name ? value.name : "[Blob]") : value;
+      }
+      console.log("미리보기 및 FormData 업데이트가 완료되었습니다.", formDataObj);
+    } catch (error) {
+      console.error("handlePreview 에러:", error);
     }
   };
 
-  // blue track 추가 (수동)
-  const addBlueTrack = () => {
-    setBlueTracks(prev => [...prev, { id: String(Date.now() + Math.random()), tracks: [] }]);
+  const handleMergeMedia = async () => {
+    if (!combinedAudioUrl) {
+      alert("병합된 오디오가 없습니다.");
+      return;
+    }
+    const allRedTracks = redTracks.flatMap((group, groupIndex) =>
+      group.tracks.map(track => ({ ...track, groupIndex }))
+    );
+    if (allRedTracks.length === 0) {
+      alert("비디오 트랙이 없습니다.");
+      return;
+    }
+    const startTimes = allRedTracks.map(track => track.delayPx / 50);
+    const redTrackIndices = allRedTracks.map(track => track.groupIndex);
+    const sortedArray = allRedTracks
+      .map((track, index) => ({
+        ...track,
+        startTime: startTimes[index],
+        redIndex: redTrackIndices[index]
+      }))
+      .sort((a, b) => a.redIndex - b.redIndex)
+      .reverse();
+    const sortedStartTimes = sortedArray.map(item => item.startTime);
+    try {
+      const audioResponse = await fetch(combinedAudioUrl);
+      const audioBlob = await audioResponse.blob();
+      const audioFile = new File([audioBlob], "merged_audio.wav", { type: "audio/wav" });
+      const formDataForMerge = new FormData();
+      formDataForMerge.append("audio", audioFile);
+      sortedArray.forEach(track => {
+        formDataForMerge.append("video", track.file);
+      });
+      formDataForMerge.append("start_times", JSON.stringify(sortedStartTimes));
+      formDataForMerge.append("red_track_indices", JSON.stringify(sortedArray.map(item => item.redIndex)));
+      const response = await fetch("http://localhost:8000/merge-media", {
+        method: "POST",
+        body: formDataForMerge,
+      });
+      if (!response.ok) {
+        throw new Error("서버 병합 오류");
+      }
+      const mergedBlob = await response.blob();
+      const mergedUrl = URL.createObjectURL(mergedBlob);
+      setOutputUrl(mergedUrl);
+      const newFormData = new FormData();
+      for (let [key, value] of formData.entries()) {
+        newFormData.append(key, value);
+      }
+      newFormData.set('mergedVideoUrl', mergedUrl);
+      setFormData(newFormData);
+      alert("병합 완료!");
+    } catch (error) {
+      console.error(error);
+      alert("병합 중 오류 발생: " + error.message);
+    }
   };
 
-  // red track 추가 (수동)
-  const addRedTrack = () => {
-    setRedTracks(prev => [...prev, { id: String(Date.now() + Math.random()), tracks: [] }]);
+  // 개별 트랙 삭제 함수 (우클릭 컨텍스트 메뉴로 삭제)
+  const handleDeleteBlueTrack = (blueTrackId, trackId) => {
+    setBlueTracks(prev =>
+      prev.map(bt =>
+        bt.id === blueTrackId ? { ...bt, tracks: bt.tracks.filter(t => t.id !== trackId) } : bt
+      )
+    );
+  };
+
+  const handleDeleteRedTrack = (redTrackId, trackId) => {
+    setRedTracks(prev =>
+      prev.map(rt =>
+        rt.id === redTrackId ? { ...rt, tracks: rt.tracks.filter(t => t.id !== trackId) } : rt
+      )
+    );
   };
 
   // 파일 업로드 핸들러 (blueTracks)
@@ -590,7 +738,7 @@ const CombinedTrack = ({ initialJson }) => {
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // blueTracks 변경 시 오디오 병합 (WaveSurfer용)
+  // blueTracks 변경 시, 오디오 병합 (WaveSurfer용)
   useEffect(() => {
     const mergedTracks = [];
     for (const bt of blueTracks) {
@@ -602,10 +750,12 @@ const CombinedTrack = ({ initialJson }) => {
       combineAudioFilesWithDelays(mergedTracks)
         .then(url => setCombinedAudioUrl(url))
         .catch(err => console.error(err));
+    } else {
+      setCombinedAudioUrl(null);
     }
   }, [blueTracks]);
 
-  // WaveSurfer 초기화 (오디오 파형 렌더링)
+  // WaveSurfer 초기화: 오디오 파형 렌더링
   useEffect(() => {
     if (combinedAudioUrl && mintContainerRef.current) {
       if (waveSurferRef.current) {
@@ -642,151 +792,64 @@ const CombinedTrack = ({ initialJson }) => {
     };
   }, [combinedAudioUrl]);
 
+  // 재생/일시정지 버튼
   const handlePlayPause = () => {
     if (waveSurferRef.current) {
       waveSurferRef.current.playPause();
     }
   };
 
-  useEffect(() => {
-    if (sliderRef.current) {
-      // 필요에 따라 슬라이더 길이 업데이트
-    }
-  }, [sliderRef, videoURL, duration]);
-
+  // 슬라이더 변경 핸들러 (예시)
   const handleSliderChange = (e) => {
     const newTime = parseFloat(e.target.value);
-    if (videoRef.current) {
-      videoRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-    }
+    // 필요에 따라 처리
   };
 
-  // JSON 입력 모달 (blueTracks용)
-  const openJsonModal = (blueTrackId) => {
-    setSelectedBlueTrackId(blueTrackId);
-    setShowJsonModal(true);
-  };
-
-  const handleJsonCancel = () => {
-    setShowJsonModal(false);
-    setJsonText('');
-    setSelectedBlueTrackId(null);
-  };
-
-  const handleJsonSubmit = () => {
-    try {
-      const parsed = JSON.parse(jsonText);
-      console.log("Parsed JSON:", parsed);
-      setBlueTracks(prev =>
-        prev.map(bt =>
-          bt.id === selectedBlueTrackId ? { ...bt, jsonData: parsed, jsonApplied: false } : bt
-        )
-      );
-    } catch (error) {
-      console.error("Invalid JSON:", error);
-      alert("입력한 텍스트가 유효한 JSON 형식이 아닙니다.");
-      return;
-    }
-    setShowJsonModal(false);
-    setJsonText('');
-    setSelectedBlueTrackId(null);
-  };
-
-  // ★★★★★★ 최종 영상 병합 함수 (서버 /merge-media 엔드포인트 사용) ★★★★★★
-  const handleMergeMedia = async () => {
-    if (!combinedAudioUrl) {
-      alert("병합된 오디오가 없습니다.");
-      return;
-    }
-    // redTracks의 각 그룹에서 파일을 가져오고, 그룹 인덱스를 함께 포함하여 flat한 배열 생성
-    const allRedTracks = redTracks.flatMap((group, groupIndex) =>
-      group.tracks.map(track => ({ ...track, groupIndex }))
-    );
-    if (allRedTracks.length === 0) {
-      alert("비디오 트랙이 없습니다.");
-      return;
-    }
-    // 각 비디오의 시작 시간 계산 (초)
-    const startTimes = allRedTracks.map(track => track.delayPx / 50);
-    // 각 비디오의 red track 그룹 인덱스 배열
-    const redTrackIndices = allRedTracks.map(track => track.groupIndex);
-    
-    // 정렬: 낮은 그룹 인덱스가 최종 합성 시 더 높은 우선순위가 되도록 내림차순 정렬
-    const sortedArray = allRedTracks
-      .map((track, index) => ({ ...track, startTime: startTimes[index], redIndex: redTrackIndices[index] }))
-      .sort((a, b) => a.redIndex - b.redIndex)
-      .reverse();
-    const sortedStartTimes = sortedArray.map(item => item.startTime);
-    
-    // 외부 오디오(WAV) 처리: combinedAudioUrl에서 Blob 가져오기
-    const audioResponse = await fetch(combinedAudioUrl);
-    const audioBlob = await audioResponse.blob();
-    const audioFile = new File([audioBlob], "merged_audio.wav", { type: "audio/wav" });
-    
-    // FormData 구성: 각 비디오 파일은 sortedArray 순서대로 전송
-    const formData = new FormData();
-    formData.append("audio", audioFile);
-    sortedArray.forEach(track => {
-      formData.append("video", track.file);
+  // 우클릭 시 컨텍스트 메뉴 표시 핸들러
+  const handleTrackContextMenu = (e, trackType, groupId, trackId) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      trackType,
+      groupId,
+      trackId
     });
-    formData.append("start_times", JSON.stringify(sortedStartTimes));
-    formData.append("red_track_indices", JSON.stringify(sortedArray.map(item => item.redIndex)));
-    
-    try {
-      const response = await fetch("http://localhost:8000/merge-media", {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error("서버 병합 오류");
-      }
-      const mergedBlob = await response.blob();
-      const mergedUrl = URL.createObjectURL(mergedBlob);
-      setOutputUrl(mergedUrl);
-      alert("병합 완료!");
-    } catch (error) {
-      console.error(error);
-      alert("병합 중 오류 발생: " + error.message);
-    }
   };
-  // ★★★★★★ 끝 ★★★★★★
 
-  // 최종 영상 전송 함수
-  const handleSendFinalVideo = () => {
-    if (outputUrl) {
-      setVideoURL('');
-      setTimeout(() => {
-        setVideoURL(outputUrl);
-        alert("최종 영상이 전송되었습니다.");
-      }, 0);
-    } else {
-      alert("먼저 최종 영상을 병합해주세요.");
+  // 컨텍스트 메뉴의 삭제 옵션 선택 시
+  const handleContextMenuDelete = () => {
+    if (contextMenu.trackType === 'blue') {
+      handleDeleteBlueTrack(contextMenu.groupId, contextMenu.trackId);
+    } else if (contextMenu.trackType === 'red') {
+      handleDeleteRedTrack(contextMenu.groupId, contextMenu.trackId);
     }
+    setContextMenu(prev => ({ ...prev, visible: false }));
   };
+
+  // 전역 클릭 시 컨텍스트 메뉴 숨김
+  useEffect(() => {
+    const handleClick = () => {
+      if (contextMenu.visible) {
+        setContextMenu(prev => ({ ...prev, visible: false }));
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [contextMenu.visible]);
 
   return (
-    <div>
-      <div style={{ display: 'flex' }}>
-        {/* 왼쪽 컨테이너 */}
-        <div style={{ width: '300px', flexShrink: 0, border: '1px solid #ccc', padding: '10px', boxSizing: 'border-box' }}>
-          <h3>Additional Container</h3>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+    <div className="combined-track-container">
+      <div>
+        <div style={{ width: '2200px', flexShrink: 0, border: '1px solid #ccc', padding: '10px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
             <button onClick={handlePlayPause}>Play/Pause (WS)</button>
-          </div>
-          <div style={{ marginTop: '10px' }}>
             <button onClick={addBlueTrack}>Add Blue Track</button>
-          </div>
-          <div style={{ marginTop: '10px' }}>
             <button onClick={addRedTrack}>Add Red Track</button>
-          </div>
-          {/* 새로 추가한 버튼: VideoContext의 JSON 파일들을 처리 */}
-          <div style={{ marginTop: '10px' }}>
             <button onClick={handleProcessJsonTracks}>Process JSON Tracks</button>
-          </div>
-          {/* 서버 병합 버튼 */}
-          <div style={{ marginTop: '10px' }}>
             <button onClick={handleMergeMedia}>Merge &amp; Download Video</button>
+            <button onClick={handlePreview}>PreView &amp; Update FormData</button>
           </div>
           {outputUrl && (
             <>
@@ -798,139 +861,155 @@ const CombinedTrack = ({ initialJson }) => {
               </div>
             </>
           )}
-          <VideoPlaybackControl />
         </div>
-        {/* 오른쪽 공통 컨테이너 */}
-        <div style={commonContainerStyle}>
-          {/* 타임라인 및 슬라이더 */}
-          <div style={{ ...timelineContainerStyle, position: 'sticky', top: 0 }}>
-            <div style={{ width: `${duration * 50}px`, position: 'relative' }}>
-              {duration > 0 && renderTimelineComponent(duration)}
-              <div ref={sliderRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 1000 }}>
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 0}
-                  step="0.1"
-                  value={currentTime}
-                  onInput={(e) => {
-                    const newTime = parseFloat(e.target.value);
-                    if (videoRef.current) {
-                      videoRef.current.currentTime = newTime;
-                      setCurrentTime(newTime);
-                    }
-                  }}
-                  style={{ width: '100%' }}
-                />
-              </div>
+        <div className="timeline-container">
+          <div style={{ width: '1000px', position: 'relative' }}>
+            {renderTimelineComponent(20)}
+            <div ref={sliderRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 1000 }}>
+              <input
+                type="range"
+                min="0"
+                max={20}
+                step="0.1"
+                defaultValue="0"
+                onInput={handleSliderChange}
+                style={{ width: '100%' }}
+              />
             </div>
           </div>
-          {/* 민트색 상자 (오디오 파형) */}
-          <div style={mintBoxStyle} ref={mintContainerRef} />
-          {/* blueTracks 렌더링 (오디오 트랙) */}
-          {blueTracks.map(bt => (
-            <div key={bt.id} style={{ marginTop: '10px' }}>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
-                <button onClick={() => document.getElementById(`file-input-blue-${bt.id}`).click()}>
-                  Upload Audio File
-                </button>
-                <button onClick={() => openJsonModal(bt.id)}>입력 JSON</button>
-              </div>
-              <input
-                id={`file-input-blue-${bt.id}`}
-                type="file"
-                accept="audio/*"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUploadForBlueTrack(bt.id, e)}
-              />
-              <div style={blueBoxStyle}>
-                {bt.tracks.map(track => (
-                  <div
-                    key={track.id}
-                    style={{
-                      ...draggableItemStyle,
-                      left: `${track.delayPx}px`,
-                      width: `${track.width}px`
-                    }}
-                    onMouseDown={(e) => handleBlueTrackMouseDown(e, bt.id, track.id)}
-                  >
-                    <img src={track.waveformImage} alt="waveform" style={{ width: '100%', height: '100%' }} />
-                  </div>
-                ))}
-              </div>
-              {bt.jsonData && (
-                <div style={{ marginTop: '5px', fontSize: '12px', color: '#333' }}>
-                  <pre>{JSON.stringify(bt.jsonData, null, 2)}</pre>
-                </div>
-              )}
-            </div>
-          ))}
-          {/* redTracks 렌더링 (비디오 트랙) */}
-          {redTracks.map(rt => (
-            <div key={rt.id} style={{ marginTop: '10px' }}>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
-                <button onClick={() => document.getElementById(`file-input-red-${rt.id}`).click()}>
-                  Upload Video File
-                </button>
-              </div>
-              <input
-                id={`file-input-red-${rt.id}`}
-                type="file"
-                accept="video/*"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => handleFileUploadForRedTrack(rt.id, e)}
-              />
-              <div style={redBoxStyle}>
-                {rt.tracks.map(track => (
-                  <div
-                    key={track.id}
-                    style={{
-                      ...draggableItemStyle,
-                      left: `${track.delayPx}px`,
-                      width: `${track.width}px`
-                    }}
-                    onMouseDown={(e) => handleRedTrackMouseDown(e, rt.id, track.id)}
-                  >
-                    <img src={track.thumbnail} alt="video thumbnail" style={{ width: '100%', height: '100%' }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
+        <div className="mint-box" ref={mintContainerRef} />
       </div>
-      {/* JSON 입력 모달 */}
-      {showJsonModal && (
+
+      {/* blueTracks 렌더링 (오디오 트랙) */}
+      {blueTracks.map(bt => (
+        <div key={bt.id} style={{ marginTop: '10px', display: 'flex' }}>
+          <div style={{ width: '150px', backgroundColor: '#eee', padding: '10px' }}>
+            <BlueTrackOtherMenu
+              onUploadAudio={() => document.getElementById(`file-input-blue-${bt.id}`).click()}
+              onOpenJson={() => openJsonModal(bt.id)}
+              onDeleteGroup={() => handleDeleteBlueGroup(bt.id)}
+            />
+            {/* 볼륨 컨트롤 슬라이더 */}
+            <div className="volume-control">
+              <label style={{ fontSize: '12px', color: '#dcddde' }}>Volume</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={bt.volume}
+                onChange={(e) => handleBlueTrackVolumeChange(bt.id, parseInt(e.target.value))}
+              />
+            </div>
+          </div>
+          <div style={{ flexGrow: 1 }}>
+            <input
+              id={`file-input-blue-${bt.id}`}
+              type="file"
+              accept="audio/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => handleFileUploadForBlueTrack(bt.id, e)}
+            />
+            <div className="blue-box">
+              {bt.tracks.map(track => (
+                <div
+                  key={track.id}
+                  className="draggable-item"
+                  style={{ left: `${track.delayPx}px`, width: `${track.width}px` }}
+                  onMouseDown={(e) => handleBlueTrackMouseDown(e, bt.id, track.id)}
+                  onContextMenu={(e) => handleTrackContextMenu(e, 'blue', bt.id, track.id)}
+                >
+                  <img src={track.waveformImage} alt="waveform" style={{ width: '100%', height: '100%' }} />
+                </div>
+              ))}
+            </div>
+            {bt.jsonData && (
+              <div style={{ marginTop: '5px', fontSize: '12px', color: '#dcddde' }}>
+                <pre>{JSON.stringify(bt.jsonData, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* redTracks 렌더링 (비디오 트랙) */}
+      {redTracks.map(rt => (
+        <div key={rt.id} style={{ marginTop: '10px', display: 'flex' }}>
+          <div style={{ width: '150px', backgroundColor: '#eee', padding: '10px' }}>
+            <RedTrackOtherMenu
+              onUploadVideo={() => document.getElementById(`file-input-red-${rt.id}`).click()}
+              onDeleteGroup={() => handleDeleteRedGroup(rt.id)}
+            />
+            {/* 볼륨 컨트롤 슬라이더 */}
+            <div className="volume-control">
+              <label style={{ fontSize: '12px', color: '#dcddde' }}>Volume</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={rt.volume}
+                onChange={(e) => handleRedTrackVolumeChange(rt.id, parseInt(e.target.value))}
+              />
+            </div>
+          </div>
+          <div style={{ flexGrow: 1 }}>
+            <input
+              id={`file-input-red-${rt.id}`}
+              type="file"
+              accept="video/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => handleFileUploadForRedTrack(rt.id, e)}
+            />
+            <div className="red-box">
+              {rt.tracks.map(track => (
+                <div
+                  key={track.id}
+                  className="draggable-item"
+                  style={{ left: `${track.delayPx}px`, width: `${track.width}px` }}
+                  onMouseDown={(e) => handleRedTrackMouseDown(e, rt.id, track.id)}
+                  onContextMenu={(e) => handleTrackContextMenu(e, 'red', rt.id, track.id)}
+                >
+                  <img src={track.thumbnail} alt="video thumbnail" style={{ width: '100%', height: '100%' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* 우클릭 컨텍스트 메뉴 */}
+      {contextMenu.visible && (
         <div
           style={{
             position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
+            top: contextMenu.y,
+            left: contextMenu.x,
+            backgroundColor: '#36393f',
+            border: '1px solid #72767d',
+            padding: '5px',
+            zIndex: 2000,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            color: '#dcddde'
           }}
         >
-          <div
-            style={{
-              backgroundColor: '#fff',
-              padding: '20px',
-              borderRadius: '5px',
-              width: '80%',
-              maxWidth: '500px'
-            }}
-          >
+          <div style={{ cursor: 'pointer' }} onClick={handleContextMenuDelete}>
+            삭제
+          </div>
+        </div>
+      )}
+
+      {/* JSON 입력 모달 */}
+      {showJsonModal && (
+        <div className="json-modal">
+          <div className="modal-content">
             <h3>JSON 텍스트 입력</h3>
             <textarea
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
-              style={{ width: '100%', height: '200px' }}
             />
             <div style={{ marginTop: '10px', textAlign: 'right' }}>
               <button onClick={handleJsonCancel} style={{ marginRight: '10px' }}>
