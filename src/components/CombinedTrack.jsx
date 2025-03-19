@@ -505,13 +505,34 @@ const CombinedTrack = ({ formData, setFormData ,globalTime}) => {
   };
 
   const handleProcessJsonTracks = () => {
-    console.log("Process JSON Tracks 버튼 클릭");
-    alert("Process JSON Tracks 기능을 구현하세요.");
+    const newBlueTracks = blueTracks.map(bt => {
+      if (bt.jsonData && !bt.jsonApplied) {
+        const newTracks = bt.jsonData.map((data, index) => {
+          const { start, duration, url } = data;
+          return {
+            id: String(Date.now() + Math.random()),
+            file: null,
+            url,
+            delayPx: start * 50,
+            duration,
+            volume: bt.volume
+          };
+        });
+        return { ...bt, tracks: newTracks, jsonApplied: true };
+      }
+      return bt;
+    });
+    setBlueTracks(newBlueTracks);
   };
 
   const handleSendFinalVideo = () => {
-    console.log("Send Final Video 버튼 클릭");
-    alert("최종 영상 전송 기능을 구현하세요.");
+    const newFormData = new FormData();
+    for (let [key, value] of formData.entries()) {
+      newFormData.append(key, value);
+    }
+    newFormData.set('finalVideoUrl', outputUrl);
+    setFormData(newFormData);
+    alert("최종 비디오가 성공적으로 전송되었습니다.");
   };
 
   const handlePreview = async () => {

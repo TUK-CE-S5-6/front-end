@@ -1,13 +1,74 @@
-// VideoUpload.jsx
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 
-function VideoUpload({ formData, setFormData }) {
+function VideoUpload() {
+  const dispatch = useDispatch();
   const [videoFile, setVideoFile] = useState(null);
+  const [sourceLanguage, setSourceLanguage] = useState('ko-KR');
+  const [targetLanguage, setTargetLanguage] = useState('en-US');
   const [responseMessage, setResponseMessage] = useState('');
-  const [localVideoData, setLocalVideoData] = useState(null); // 컴포넌트 내에서 JSON 데이터 임시 저장
+  const [videoData, setVideoData] = useState(null); // 서버에서 반환된 JSON 데이터 저장
 
   const handleFileChange = (e) => {
     setVideoFile(e.target.files[0]);
+  };
+
+  // JSON 데이터를 받아서 배경음과 TTS 트랙을 store에 저장하는 함수
+  const processVideoData = (data) => {
+    // 1. 배경음 처리: background_music이 있으면 새로운 오디오 그룹으로 추가
+    if (data.background_music && data.background_music.file_path) {
+      const bgGroup = {
+        id: Date.now(), // 고유 id
+        volume: data.background_music.volume || 100,
+        tracks: [
+          {
+            id: Date.now() + 1, // 고유 트랙 id
+            startTime: 0,
+            duration: 0, // 배경음의 길이가 없을 경우 0으로 처리
+            url: data.background_music.file_path, // 파일 경로를 url로 사용
+            waveformImage: "", // 파형 이미지 정보가 없으면 빈 문자열
+            delayPx: 0,
+            width: 100,
+          }
+        ]
+      };
+      dispatch({
+        type: 'ADD_AUDIO_GROUP',
+        payload: bgGroup,
+      });
+    }
+
+    // 2. TTS 트랙 처리: tts_tracks를 화자별로 그룹화
+    const ttsTracks = data.tts_tracks || [];
+    const groupsBySpeaker = {};
+    ttsTracks.forEach((tts) => {
+      const speaker = tts.speaker;
+      if (!groupsBySpeaker[speaker]) {
+        groupsBySpeaker[speaker] = [];
+      }
+      groupsBySpeaker[speaker].push(tts);
+    });
+
+    // 화자별 그룹을 생성하여 store에 추가
+    Object.keys(groupsBySpeaker).forEach((speaker) => {
+      const ttsGroup = {
+        id: Date.now() + Math.floor(Math.random() * 1000), // 고유 id 생성
+        volume: 100,
+        tracks: groupsBySpeaker[speaker].map((tts) => ({
+          id: tts.tts_id, // TTS 고유 id 사용
+          startTime: tts.start_time,
+          duration: tts.duration,
+          url: tts.file_path, // 파일 경로를 url로 사용
+          waveformImage: "https://via.placeholder.com/100x40?text=TTS", // placeholder 이미지
+          delayPx: 0,
+          width: 100,
+        })),
+      };
+      dispatch({
+        type: 'ADD_AUDIO_GROUP',
+        payload: ttsGroup,
+      });
+    });
   };
 
   const handleUpload = async (e) => {
@@ -17,15 +78,21 @@ function VideoUpload({ formData, setFormData }) {
       return;
     }
 
-    const uploadFormData = new FormData();
-    uploadFormData.append('file', videoFile);
+    const formData = new FormData();
+    formData.append('file', videoFile);
+    // 소스 및 타겟 언어 코드 추가
+    formData.append('source_language', sourceLanguage);
+    formData.append('target_language', targetLanguage);
 
     try {
       // 🎥 비디오 업로드 및 JSON 수신
-      const uploadResponse = await fetch('http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/upload-video', {
-        method: 'POST',
-        body: uploadFormData,
-      });
+      const uploadResponse = await fetch(
+        'http://ec2-3-26-190-145.ap-southeast-2.compute.amazonaws.com:8000/upload-video',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
@@ -35,31 +102,9 @@ function VideoUpload({ formData, setFormData }) {
 
       const uploadResult = await uploadResponse.json();
       setResponseMessage('업로드 성공!');
-      setLocalVideoData(uploadResult);
-
-      // 부모(App.js)에서 관리하는 formData 업데이트하기
-      // 기존 formData에 새로운 필드를 추가하려면 기존 항목들을 복사하여 새 FormData 생성
-      const newFormData = new FormData();
-      // 기존 formData 복사 (필요한 경우)
-      for (let [key, value] of formData.entries()) {
-        newFormData.append(key, value);
-      }
-      // 업로드 결과 JSON 데이터를 문자열로 저장
-      newFormData.set('videoData', JSON.stringify(uploadResult));
-      // 비디오 URL과 오디오 URL도 업데이트
-      newFormData.set(
-        'videoURL',
-        `http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/videos/${uploadResult.video.file_name}`
-      );
-      newFormData.set(
-        'audioURL',
-        `http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${uploadResult.background_music.file_path
-          .replace(/^extracted_audio[\\/]/, '')
-          .replace(/\\/g, '/')}`
-      );
-      // 필요한 경우 추가로 JSON 데이터를 배열에 저장하는 등 다른 작업도 가능
-      setFormData(newFormData);
-
+      setVideoData(uploadResult);
+      // 받아온 JSON 데이터를 store에 배경음과 TTS 트랙으로 저장
+      processVideoData(uploadResult);
     } catch (error) {
       console.error('Error:', error);
       setResponseMessage('오류가 발생했습니다.');
@@ -70,150 +115,57 @@ function VideoUpload({ formData, setFormData }) {
     <div>
       <h1>동영상 업로드 및 JSON 데이터 보기</h1>
       <form onSubmit={handleUpload}>
-        <input type="file" accept="video/*" onChange={handleFileChange} />
+        <div>
+          <label>동영상 파일: </label>
+          <input type="file" accept="video/*" onChange={handleFileChange} />
+        </div>
+        <div>
+          <label>Source Language Code: </label>
+          <input
+            type="text"
+            value={sourceLanguage}
+            onChange={(e) => setSourceLanguage(e.target.value)}
+          />
+        </div>
+        <div>
+          <label>Target Language Code: </label>
+          <input
+            type="text"
+            value={targetLanguage}
+            onChange={(e) => setTargetLanguage(e.target.value)}
+          />
+        </div>
         <button type="submit">업로드</button>
       </form>
       {responseMessage && <p>{responseMessage}</p>}
 
-      {localVideoData && (
+      {videoData && (
         <div>
-          {/* 전체 처리 시간 및 단계별 시간 표시 */}
-          {localVideoData.timings && (
-            <div>
-              <h2>⏱️ 처리 시간</h2>
-              <p>
-                <strong>총 처리 시간:</strong>{' '}
-                {localVideoData.timings.overall_time.toFixed(2)} 초
-              </p>
-              <h3>각 단계별 처리 시간</h3>
-              <ul>
-                <li>
-                  <strong>업로드 시간:</strong>{' '}
-                  {localVideoData.timings.upload_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>오디오 추출 시간:</strong>{' '}
-                  {localVideoData.timings.audio_extraction_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>Spleeter 분리 시간:</strong>{' '}
-                  {localVideoData.timings.spleeter_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>DB 저장 시간:</strong>{' '}
-                  {localVideoData.timings.db_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>STT 처리 시간:</strong>{' '}
-                  {localVideoData.timings.stt_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>번역 처리 시간:</strong>{' '}
-                  {localVideoData.timings.translation_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>TTS 생성 시간:</strong>{' '}
-                  {localVideoData.timings.tts_time.toFixed(2)} 초
-                </li>
-                <li>
-                  <strong>최종 결과 조회 시간:</strong>{' '}
-                  {localVideoData.timings.get_time.toFixed(2)} 초
-                </li>
-              </ul>
-            </div>
-          )}
-
+          {/* 비디오 정보 및 재생 */}
           <h2>📌 비디오 정보</h2>
           <p>
-            <strong>파일명:</strong> {localVideoData.video.file_name}
+            <strong>파일명:</strong> {videoData.video.file_name}
           </p>
           <p>
-            <strong>파일 경로:</strong> {localVideoData.video.file_path}
+            <strong>파일 경로:</strong> {videoData.video.file_path}
           </p>
           <p>
-            <strong>길이:</strong> {localVideoData.video.duration}초
+            <strong>길이:</strong> {videoData.video.duration}초
           </p>
-
-          {/* 🎥 비디오 실행 */}
-          <video controls width="600" crossOrigin="anonymous">
+          <video controls width="600">
             <source
-              src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/videos/${localVideoData.video.file_name}`}
+              src={`http://ec2-3-26-190-145.ap-southeast-2.compute.amazonaws.com:8000/videos/${videoData.video.file_name}`}
               type="video/mp4"
             />
             브라우저가 비디오 태그를 지원하지 않습니다.
           </video>
 
-          <h2>🎼 배경음 정보</h2>
-          {localVideoData.background_music.file_path ? (
-            <>
-              <p>
-                <strong>파일 경로:</strong>{' '}
-                {localVideoData.background_music.file_path}
-              </p>
-              <p>
-                <strong>볼륨:</strong> {localVideoData.background_music.volume}
-              </p>
-
-              {/* 🎵 배경음 재생 */}
-              <audio controls crossOrigin="anonymous">
-                <source
-                  src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${localVideoData.background_music.file_path
-                    .replace(/^extracted_audio[\\/]/, '')
-                    .replace(/\\/g, '/')}`}
-                  type="audio/mp3"
-                />
-              </audio>
-            </>
-          ) : (
-            <p>배경음 없음</p>
-          )}
-
-          <h2>🎙️ TTS 트랙</h2>
-          {localVideoData.tts_tracks.length > 0 ? (
-            <ul>
-              {localVideoData.tts_tracks.map((tts) => (
-                <li key={tts.tts_id}>
-                  <p>
-                    <strong>파일 경로:</strong> {tts.file_path}
-                  </p>
-                  <p>
-                    <strong>시작 시간:</strong> {tts.start_time}초
-                  </p>
-                  <p>
-                    <strong>길이:</strong> {tts.duration}초
-                  </p>
-                  <p>
-                    <strong>목소리:</strong> {tts.voice}
-                  </p>
-                  <p>
-                    <strong>번역 텍스트:</strong> {tts.translated_text}
-                  </p>
-                  <p>
-                    <strong>원본 텍스트:</strong> {tts.original_text}
-                  </p>
-                  <p>
-                    <strong>화자:</strong> {tts.speaker}
-                  </p>
-                  {/* 🎤 TTS 음성 재생 */}
-                  <audio controls crossOrigin="anonymous">
-                    <source
-                      src={`http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${tts.file_path
-                        .replace(/^extracted_audio[\\/]/, '')
-                        .replace(/\\/g, '/')}`}
-                      type="audio/mp3"
-                    />
-                  </audio>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>TTS 트랙 없음</p>
-          )}
-
-          {/* 맨 아래에 로컬 JSON 데이터 출력 */}
-          <div style={{ marginTop: '20px' }}>
-            <h2>테스트: 로컬 JSON 데이터 출력</h2>
-            <pre>{JSON.stringify(localVideoData, null, 2)}</pre>
+          {/* JSON 파일 전체 내용 출력 */}
+          <div style={{ marginTop: '40px', padding: '10px', border: '1px solid #000', backgroundColor: '#f9f9f9' }}>
+            <h2>JSON 데이터</h2>
+            <pre style={{ fontSize: '12px' }}>
+              {JSON.stringify(videoData, null, 2)}
+            </pre>
           </div>
         </div>
       )}

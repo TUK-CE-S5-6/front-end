@@ -5,11 +5,11 @@ import SignUp from './pages/SignUp';
 import Header from './components/Header';
 import Upload from './pages/Upload';
 import Stt from './pages/SttVideo';
-import VideoViewer from './components/VideoViewer';
-import CombinedTrack from './components/CombinedTrack';
 import AudioGenerator from './pages/audio';
 import './App.css';
 import './Layout.css';
+import Track from './components/Track/Track';
+import Viewer from './components/Viewer/Viewer';
 
 function App() {
   // FormData 상태를 App.js에서 관리
@@ -111,7 +111,9 @@ function App() {
               <Route path="/upload" element={<Upload />} />
               <Route path="/stt" element={<Stt />} />
               <Route path="/audio" element={<AudioGenerator />} />
+              
               <Route path="*" element={<h2>404 Not Found</h2>} />
+
             </Routes>
           </div>
           {/* Vertical splitter */}
@@ -125,8 +127,8 @@ function App() {
             }}
           ></div>
           <div className="topRight" style={{ flexGrow: 1, backgroundColor: 'lightcoral' }}>
-            {/* VideoViewer에 globalTime, setGlobalTime 전달 */}
-            <VideoViewer formData={formData} globalTime={globalTime} setGlobalTime={setGlobalTime} />
+            {/*비디오 뷰어 만들꺼임 */}
+            <Viewer />
           </div>
         </div>
 
@@ -143,8 +145,8 @@ function App() {
 
         {/* 하단 영역: CombinedTrack */}
         <div className="bottom" style={{ gridColumn: '1 / span 2' }}>
-          {/* CombinedTrack에도 globalTime 전달 */}
-          <CombinedTrack formData={formData} setFormData={setFormData} globalTime={globalTime} />
+            {/*트랙 만들꺼 */}
+            <Track />
         </div>
       </div>
     </BrowserRouter>
