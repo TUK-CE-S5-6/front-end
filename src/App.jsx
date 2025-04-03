@@ -10,6 +10,8 @@ import './App.css';
 import './Layout.css';
 import Track from './components/Track/Track';
 import Viewer from './components/Viewer/Viewer';
+import FileDetails from './pages/file-details';
+import FileList from './pages/FileList';
 
 function App() {
   // FormData 상태를 App.js에서 관리
@@ -111,9 +113,10 @@ function App() {
               <Route path="/upload" element={<Upload />} />
               <Route path="/stt" element={<Stt />} />
               <Route path="/audio" element={<AudioGenerator />} />
-              
+              <Route path="/file-details" element={<FileDetails />} />
+              <Route path="/filelist" element={<FileList />} />
               <Route path="*" element={<h2>404 Not Found</h2>} />
-
+              
             </Routes>
           </div>
           {/* Vertical splitter */}

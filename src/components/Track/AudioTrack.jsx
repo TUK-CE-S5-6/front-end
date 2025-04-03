@@ -1,12 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
-// 오디오 버퍼를 기반으로 캔버스에 파형을 그리고 data URL을 반환하는 함수
-const generateWaveformImage = (audioBuffer) => {
+// 수정된 파형 이미지 생성 함수: width와 height를 매개변수로 받음
+const generateWaveformImage = (audioBuffer, width, height) => {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
-    const width = 300; // 캔버스 넓이 (원하는 크기로 조정 가능)
-    const height = 100; // 캔버스 높이
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -15,7 +13,7 @@ const generateWaveformImage = (audioBuffer) => {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, width, height);
 
-    // 파형 그리기 (첫 번째 채널 데이터를 사용)
+    // 파형 그리기 (첫 번째 채널 데이터 사용)
     ctx.fillStyle = "#007bff";
     const rawData = audioBuffer.getChannelData(0);
     const samplesPerPixel = Math.floor(rawData.length / width);
@@ -28,8 +26,7 @@ const generateWaveformImage = (audioBuffer) => {
       const barHeight = avg * height;
       ctx.fillRect(i, (height - barHeight) / 2, 1, barHeight);
     }
-    const dataURL = canvas.toDataURL();
-    resolve(dataURL);
+    resolve(canvas.toDataURL());
   });
 };
 
@@ -39,17 +36,22 @@ const AudioTracks = () => {
   const storeState = useSelector(state => state);
   const fileInputRef = useRef(null);
   const [uploadGroupId, setUploadGroupId] = useState(null);
+  const [activeMenuGroup, setActiveMenuGroup] = useState(null);
+  // 이름 편집을 위한 상태
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingName, setEditingName] = useState('');
 
   // 기본 placeholder 트랙 추가 함수
   const addAudioItem = (groupId) => {
+    const duration = 5; // placeholder로 5초
     const newItem = {
       id: Date.now(),
       startTime: 0,
-      duration: 5,
+      duration,
       url: "audio-placeholder.mp3",
       waveformImage: "https://via.placeholder.com/100x40?text=Wave",
       delayPx: 0,
-      width: 100,
+      width: Math.floor(duration * 100),
     };
     dispatch({
       type: 'ADD_AUDIO_TRACKS',
@@ -60,7 +62,7 @@ const AudioTracks = () => {
     });
   };
 
-  // 오디오 아이템 드래그 이벤트 처리 (delayPx에 따라 1px 당 0.01초씩 startTime 업데이트)
+  // 오디오 아이템 드래그 이벤트 처리
   const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0) => {
     const startX = e.clientX;
     const initialLeft = currentDelayPx;
@@ -91,6 +93,7 @@ const AudioTracks = () => {
       fileInputRef.current.value = null;
       fileInputRef.current.click();
     }
+    setActiveMenuGroup(null);
   };
 
   // 파일 선택 후, 오디오 파일을 읽어 파형 이미지 생성 및 트랙 추가
@@ -106,16 +109,16 @@ const AudioTracks = () => {
           tempAudioCtx.decodeAudioData(arrayBuffer, resolve, reject);
         });
         const duration = audioBuffer.duration;
-        // 업로드한 오디오 데이터를 분석해 파형 이미지를 생성합니다.
-        const waveformImage = await generateWaveformImage(audioBuffer);
+        const width = Math.floor(duration * 100);
+        const waveformImage = await generateWaveformImage(audioBuffer, width, 40);
         const newItem = {
           id: Date.now(),
-          startTime: 0, // 기본 startTime (추후 delayPx에 따라 업데이트됨)
-          duration,   // 실제 오디오 길이 (초)
+          startTime: 0,
+          duration,     
           url: fileUrl,
-          waveformImage, // 생성된 파형 이미지 data URL
+          waveformImage,
           delayPx: 0,
-          width: 100,
+          width,
         };
         dispatch({
           type: 'ADD_AUDIO_TRACKS',
@@ -138,9 +141,10 @@ const AudioTracks = () => {
       type: 'DELETE_AUDIO_GROUP',
       payload: groupId,
     });
+    setActiveMenuGroup(null);
   };
 
-  // 볼륨 변경 처리
+  // 볼륨 슬라이더 변경 처리
   const handleVolumeChange = (groupId, newVolume) => {
     dispatch({
       type: 'CHANGE_AUDIO_VOLUME',
@@ -148,88 +152,162 @@ const AudioTracks = () => {
     });
   };
 
+  // 스피커 버튼 클릭 시, 현재 볼륨이 0이면 100으로, 0이 아니면 0으로 토글
+  const handleVolumeToggle = (group) => {
+    const newVolume = group.volume > 0 ? 0 : 100;
+    dispatch({
+      type: 'CHANGE_AUDIO_VOLUME',
+      payload: { groupId: group.id, volume: newVolume }
+    });
+  };
+
+  // 그룹 이름 편집 시작
+  const startEditingName = (group) => {
+    setEditingGroupId(group.id);
+    setEditingName(group.name);
+  };
+
+  // 그룹 이름 편집 완료 (엔터 또는 블러 시)
+  const finishEditingName = (groupId) => {
+    dispatch({
+      type: 'UPDATE_AUDIO_GROUP_NAME',
+      payload: { groupId, name: editingName }
+    });
+    setEditingGroupId(null);
+    setEditingName('');
+  };
+
   return (
-    <div>
-      {/* 숨겨진 파일 input */}
-      <input 
-        type="file" 
-        accept="audio/*" 
-        ref={fileInputRef} 
-        style={{ display: 'none' }} 
-        onChange={handleFileChange} 
-      />
-      {/* 오디오 그룹 추가 버튼 제거됨 */}
-      {audioTracks.map(group => (
-        <div key={group.id} style={{ marginBottom: '0px' }}>
-          <div style={{ display: 'flex', border: '1px solid #ccc', marginBottom: '0px' }}>
-            {/* 좌측 메뉴 영역 */}
-            <div style={{ width: '150px', backgroundColor: '#eee', padding: '10px' }}>
-              <button onClick={() => handleUploadAudio(group.id)}>Upload Audio</button>
-              <button onClick={() => handleDeleteGroup(group.id)}>Delete Group</button>
-              <div style={{ marginTop: '10px' }}>
-                <label style={{ fontSize: '12px', color: '#333' }}>Volume</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={group.volume}
-                  onChange={(e) =>
-                    handleVolumeChange(group.id, parseInt(e.target.value, 10))
-                  }
-                />
-              </div>
-              <button onClick={() => addAudioItem(group.id)} style={{ marginTop: '10px' }}>
-                Add Audio Item
-              </button>
-            </div>
-            {/* 우측 트랙 영역 */}
-            <div
-              style={{
-                flexGrow: 1,
-                backgroundColor: '#ddd',
-                padding: '0px',
-                position: 'relative',
-                height: '100px'
-              }}
-            >
-              {group.tracks.map(item => (
-                <div
-                  key={item.id}
-                  style={{
-                    position: 'absolute',
-                    left: `${item.delayPx || 0}px`,
-                    width: `${item.width || 100}px`,
-                    cursor: 'grab'
-                  }}
-                  onMouseDown={(e) =>
-                    handleItemMouseDown(e, group.id, item.id, item.delayPx)
-                  }
-                >
-                  <img
-                    src={item.waveformImage}
-                    alt="audio waveform"
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                  <div style={{ fontSize: '10px', color: '#000' }}>
-                    <p>Start: {(item.delayPx * 0.01).toFixed(2)}s</p>
-                    <p>Duration: {item.duration ? item.duration.toFixed(2) : 'N/A'}s</p>
+    
+      <div>
+        {/* 숨겨진 파일 input */}
+        <input 
+          type="file" 
+          accept="audio/*" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleFileChange} 
+        />
+        {audioTracks.map(group => (
+          <div key={group.id} style={{ marginBottom: '0px' }}>
+            <div style={{ display: 'flex', border: '1px solid #ccc', marginBottom: '0px' }}>
+              {/* 좌측 메뉴 영역: width 210px (150px + 60px), overflow visible */}
+              <div style={{ width: '210px', backgroundColor: '#eee', padding: '10px', overflow: 'visible' }}>
+                {/* 그룹 이름과 메뉴 버튼 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {editingGroupId === group.id ? (
+                    <input 
+                      type="text" 
+                      value={editingName} 
+                      onChange={(e) => setEditingName(e.target.value)} 
+                      onBlur={() => finishEditingName(group.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') finishEditingName(group.id);
+                      }}
+                      autoFocus
+                      style={{ fontSize: '12px' }}
+                    />
+                  ) : (
+                    <span 
+                      style={{ fontSize: '12px', color: '#333', cursor: 'pointer' }}
+                      onClick={() => startEditingName(group)}
+                    >
+                      {group.name}
+                    </span>
+                  )}
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setActiveMenuGroup(activeMenuGroup === group.id ? null : group.id)}>
+                      :
+                    </button>
+                    {activeMenuGroup === group.id && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '100%',
+                        marginLeft: '10px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        padding: '10px',
+                        zIndex: 1
+                      }}>
+                        <button onClick={() => handleUploadAudio(group.id)}>Upload Audio</button>
+                        <button onClick={() => handleDeleteGroup(group.id)}>Delete Group</button>
+                        
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+                {/* 볼륨 슬라이더와 스피커 버튼 (가로 400px 고정) */}
+                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', height: '40px', width: '200px' }}>
+                  <button 
+                    onClick={() => handleVolumeToggle(group)}
+                    style={{ width: '40px', height: '40px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', marginRight: '5px' }}
+                  >
+                    {group.volume === 0 ? '🔇' : '🔊'}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={group.volume}
+                    onChange={(e) =>
+                      handleVolumeChange(group.id, parseInt(e.target.value, 10))
+                    }
+                    style={{ width: 'calc(100% - 45px)' }}
+                  />
+                </div>
+              </div>
+              {/* 우측 트랙 영역 */}
+              <div
+                style={{
+                  flexGrow: 1,
+                  backgroundColor: '#ddd',
+                  padding: '0px',
+                  paddingLeft: '60px', // 왼쪽 영역이 늘어난 만큼 내부 콘텐츠를 오른쪽으로 이동
+                  position: 'relative',
+                  height: '100px'
+                }}
+              >
+                {group.tracks.map(item => (
+                  <div
+                    key={item.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${item.delayPx || 0}px`,
+                      width: `${item.width || 100}px`,
+                      height: '40px',
+                      cursor: 'grab'
+                    }}
+                    onMouseDown={(e) =>
+                      handleItemMouseDown(e, group.id, item.id, item.delayPx)
+                    }
+                  >
+                    <img
+                      src={item.waveformImage}
+                      alt="audio waveform"
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                    <div style={{ fontSize: '10px', color: '#000' }}>
+                      <p>Start: {(item.delayPx * 0.01).toFixed(2)}s</p>
+                      <p>Duration: {item.duration ? item.duration.toFixed(2) : 'N/A'}s</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        ))}
+        {/* 전체 store 상태 출력 */}
+        <div style={{ marginTop: '40px', padding: '10px', border: '1px solid #000', backgroundColor: '#f9f9f9' }}>
+          <h3>Store State</h3>
+          <pre style={{ fontSize: '12px' }}>
+            {JSON.stringify(storeState, null, 2)}
+          </pre>
         </div>
-      ))}
-      {/* 전체 store 상태 출력 */}
-      <div style={{ marginTop: '40px', padding: '10px', border: '1px solid #000', backgroundColor: '#f9f9f9' }}>
-        <h3>Store State</h3>
-        <pre style={{ fontSize: '12px' }}>
-          {JSON.stringify(storeState, null, 2)}
-        </pre>
       </div>
-    </div>
-  );
+    );
+    
 };
 
 export default AudioTracks;
