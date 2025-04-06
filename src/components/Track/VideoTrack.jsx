@@ -58,11 +58,20 @@ async function generateCompositeThumbnail(file, interval = 1, thumbnailHeight = 
 const VideoTracks = () => {
   const dispatch = useDispatch();
   const videoTracks = useSelector(state => state.videoTracks);
+  // 전역 timelineDuration 값을 Redux에서 가져옵니다.
+  const timelineDuration = useSelector(state => state.timelineDuration);
   const [uploadVideoGroupId, setUploadVideoGroupId] = useState(null);
   const [activeVideoMenuGroup, setActiveVideoMenuGroup] = useState(null);
   const [editingVideoGroupId, setEditingVideoGroupId] = useState(null);
   const [editingVideoName, setEditingVideoName] = useState('');
   const videoFileInputRef = useRef(null);
+  
+  // 드래그 중인 아이템의 위치를 로컬 상태로 관리
+  const [draggingItem, setDraggingItem] = useState(null);
+  // 각 그룹의 볼륨 슬라이더 값을 로컬 상태로 관리 (Redux 업데이트는 드래그 종료 시)
+  const [localVolume, setLocalVolume] = useState({});
+  // 회색 영역(우측 트랙 영역)의 ref 추가
+  const containerRef = useRef(null);
 
   // placeholder 비디오 아이템 추가 함수
   const addVideoItem = (groupId) => {
@@ -84,23 +93,44 @@ const VideoTracks = () => {
     });
   };
 
-  // 드래그 이벤트: 비디오 아이템의 위치 업데이트
-  const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0) => {
+  // 드래그 이벤트: 로컬 상태를 사용하여 위치 업데이트 후 드래그 종료 시 한 번만 Redux 업데이트
+  const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0, itemWidth = 100) => {
     const startX = e.clientX;
     const initialLeft = currentDelayPx;
+    let finalDelayPx = currentDelayPx;
+
+    setDraggingItem({
+      groupId,
+      trackId: itemId,
+      newDelayPx: currentDelayPx,
+    });
+
     const onMouseMove = (moveEvent) => {
       const delta = moveEvent.clientX - startX;
-      const newLeft = initialLeft + delta;
-      const newStartTime = newLeft * 0.01;
+      let newLeft = initialLeft + delta;
+      // 회색 영역 내에서만 이동하도록 제한
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        newLeft = Math.max(0, Math.min(newLeft, containerWidth - itemWidth));
+      }
+      finalDelayPx = newLeft;
+      setDraggingItem(prev => ({
+        ...prev,
+        newDelayPx: newLeft,
+      }));
+    };
+
+    const onMouseUp = () => {
+      const finalStartTime = finalDelayPx * 0.01;
       dispatch({
         type: 'UPDATE_VIDEO_TRACK_ITEM',
-        payload: { groupId, trackId: itemId, newDelayPx: newLeft, newStartTime }
+        payload: { groupId, trackId: itemId, newDelayPx: finalDelayPx, newStartTime: finalStartTime }
       });
-    };
-    const onMouseUp = () => {
+      setDraggingItem(null);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
+
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
@@ -164,17 +194,26 @@ const VideoTracks = () => {
     setActiveVideoMenuGroup(null);
   };
 
-  // 볼륨 슬라이더 변경 처리
-  const handleVolumeChange = (groupId, newVolume) => {
-    dispatch({
-      type: 'CHANGE_VIDEO_VOLUME',
-      payload: { groupId, volume: newVolume }
-    });
+  // 볼륨 슬라이더 로컬 상태 업데이트 (드래그 중)
+  const handleVolumeSliderChange = (groupId, value) => {
+    setLocalVolume(prev => ({ ...prev, [groupId]: value }));
+  };
+
+  // 볼륨 슬라이더 드래그 종료 시 최종값을 Redux에 업데이트
+  const handleVolumeSliderMouseUp = (groupId) => {
+    const finalVolume = localVolume[groupId];
+    if (finalVolume !== undefined) {
+      dispatch({
+        type: 'CHANGE_VIDEO_VOLUME',
+        payload: { groupId, volume: finalVolume }
+      });
+    }
   };
 
   // 볼륨 토글 (0과 100 사이)
   const handleVolumeToggleVideo = (group) => {
     const newVolume = group.volume > 0 ? 0 : 100;
+    setLocalVolume(prev => ({ ...prev, [group.id]: newVolume }));
     dispatch({
       type: 'CHANGE_VIDEO_VOLUME',
       payload: { groupId: group.id, volume: newVolume }
@@ -207,10 +246,10 @@ const VideoTracks = () => {
         onChange={handleVideoFileChange} 
       />
       {videoTracks.map(group => (
-        <div key={group.id} style={{ marginBottom: '10px' }}>
+        <div key={group.id} style={{ marginBottom: '0px' }}>
           <div style={{ display: 'flex', border: '1px solid #ccc' }}>
             {/* 좌측 메뉴 영역 */}
-            <div style={{ width: '210px', backgroundColor: '#eee', padding: '10px', overflow: 'visible' }}>
+            <div style={{ width: '210px', backgroundColor: '#eee', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editingVideoGroupId === group.id ? (
                   <input
@@ -242,18 +281,16 @@ const VideoTracks = () => {
                       marginLeft: '10px',
                       backgroundColor: '#fff',
                       border: '1px solid #ccc',
-                      padding: '10px',
                       zIndex: 1
                     }}>
                       <button onClick={() => handleUploadVideo(group.id)}>Upload Video</button>
                       <button onClick={() => handleDeleteGroup(group.id)}>Delete Group</button>
-                      
                     </div>
                   )}
                 </div>
               </div>
               {/* 볼륨 슬라이더와 스피커 버튼 */}
-              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', height: '40px', width: '200px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', height: '40px', width: '200px' }}>
                 <button 
                   onClick={() => handleVolumeToggleVideo(group)}
                   style={{ width: '40px', height: '40px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', marginRight: '5px' }}
@@ -265,48 +302,58 @@ const VideoTracks = () => {
                   min="0"
                   max="100"
                   step="1"
-                  value={group.volume}
-                  onChange={(e) =>
-                    handleVolumeChange(group.id, parseInt(e.target.value, 10))
-                  }
+                  value={localVolume[group.id] !== undefined ? localVolume[group.id] : group.volume}
+                  onChange={(e) => handleVolumeSliderChange(group.id, parseInt(e.target.value, 10))}
+                  onMouseUp={() => handleVolumeSliderMouseUp(group.id)}
+                  onTouchEnd={() => handleVolumeSliderMouseUp(group.id)}
                   style={{ width: 'calc(100% - 45px)' }}
                 />
               </div>
             </div>
-            {/* 우측 트랙 영역 */}
+            {/* 우측 트랙 영역 (회색 영역) - timelineDuration을 기반으로 너비 설정 */}
             <div
+              ref={containerRef}
               style={{
                 flexGrow: 1,
                 backgroundColor: '#ddd',
-                padding: '0px',
-                paddingLeft: '60px',
                 position: 'relative',
-                height: '120px'
+                height: '120px',
+                width: `${timelineDuration * 100}px`,
+                flexShrink: 0,
+                minWidth: `${timelineDuration * 100}px`
               }}
             >
-              {group.tracks.map(item => (
-                <div
-                  key={item.id}
-                  style={{
-                    position: 'absolute',
-                    left: `${item.delayPx || 0}px`,
-                    width: `${item.width || 150}px`,
-                    cursor: 'grab'
-                  }}
-                  onMouseDown={(e) =>
-                    handleItemMouseDown(e, group.id, item.id, item.delayPx)
-                  }
-                >
-                  <img
-                    src={item.thumbnail}
-                    alt="video thumbnail"
-                    style={{ width: '100%', height: 'auto' }}
-                  />
-                  <div style={{ fontSize: '10px', color: '#000' }}>
-                    <p>Start: {(item.delayPx * 0.01).toFixed(2)}s</p>
+              {group.tracks.map(item => {
+                const leftValue = draggingItem && draggingItem.trackId === item.id
+                  ? draggingItem.newDelayPx
+                  : (item.delayPx || 0);
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${leftValue}px`,
+                      width: `${item.width || 150}px`,
+                      cursor: 'grab',
+                      userSelect: 'none'
+                    }}
+                    onMouseDown={(e) =>
+                      handleItemMouseDown(e, group.id, item.id, item.delayPx, item.width || 150)
+                    }
+                  >
+                    <div style={{ pointerEvents: draggingItem && draggingItem.trackId === item.id ? 'none' : 'auto' }}>
+                      <img
+                        src={item.thumbnail}
+                        alt="video thumbnail"
+                        style={{ width: '100%', height: 'auto' }}
+                      />
+                      <div style={{ fontSize: '10px', color: '#000' }}>
+                        <p>Start: {(leftValue * 0.01).toFixed(2)}s</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

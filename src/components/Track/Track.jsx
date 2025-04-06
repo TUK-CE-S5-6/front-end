@@ -2,7 +2,7 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AudioTrack from './AudioTrack';
 import VideoTrack from './VideoTrack';
-
+import TimeLine from './TimeLine';
 // 전역 카운터: 삭제되어도 계속 증가하도록 설정
 let audioTrackCounter = 1;
 let videoTrackCounter = 1;
@@ -41,9 +41,18 @@ const Track = () => {
   };
 
   return (
-    <div className="track-container">
+    <div 
+      className="track-container" 
+      style={{ 
+        width: '3000px', 
+        height: '500px', 
+        overflow: 'auto', 
+        border: '1px solid #ccc' // 선택사항: 영역을 구분하기 위한 테두리
+      }}
+    >
       <button onClick={addAudioTrack}>Add Audio Track</button>
       <button onClick={addVideoTrack}>Add Video Track</button>
+      <TimeLine />
       <VideoTrack />
       <AudioTrack />
     </div>
