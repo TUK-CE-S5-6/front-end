@@ -31,7 +31,7 @@ function VideoTranscription() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/stt-video', {
+      const response = await fetch('http://175.116.3.178:8000/stt-video', {
         method: 'POST',
         body: formData,
       });
@@ -60,7 +60,7 @@ function VideoTranscription() {
 
     setTtsStatus('TTS 생성 중...');
     try {
-      const response = await fetch('http://localhost:8000/generate-tts', {
+      const response = await fetch('http://175.116.3.178:8000/generate-tts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ function VideoTranscription() {
             {ttsFiles.map((file, index) => (
               <li key={index}>
                 <a
-                  href={`http://localhost:8000/${file}`}
+                  href={`http://175.116.3.178:8000/${file}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

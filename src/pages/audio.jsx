@@ -20,7 +20,7 @@ const AudioGenerator = () => {
       formData.append('prompt_influence', 0.3); // 선택 사항 (필요시)
 
       const response = await fetch(
-        'http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8002/generate-sound-effect',
+        'http://175.116.3.178:8002/generate-sound-effect',
         {
           method: 'POST',
           body: formData,
@@ -36,7 +36,7 @@ const AudioGenerator = () => {
       // 서버가 상대 경로를 반환하는 경우, 전체 URL로 변경합니다.
       const completeUrl = data.file_url.startsWith('http')
         ? data.file_url
-        : `http://ec2-13-211-6-9.ap-southeast-2.compute.amazonaws.com:8002${data.file_url}`;
+        : `http://175.116.3.178:8002${data.file_url}`;
       setAudioUrl(completeUrl);
     } catch (err) {
       setError(err.message);

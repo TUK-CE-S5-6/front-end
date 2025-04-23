@@ -10,6 +10,8 @@ const initialState = {
   ],
   combinedAudioUrl: null,
   outputUrl: null,
+  nextAudioTrackIndex: 1,
+  nextVideoTrackIndex: 1,
   globalTime: 0,
   timelineDuration: 23, // 초기에는 트랙이 없으므로 0+60 = 60
 };
@@ -52,12 +54,19 @@ const reducer = (state = initialState, action) => {
       };
       break;
 
-    case 'ADD_AUDIO_GROUP':
-      newState = {
-        ...state,
-        audioTracks: [...state.audioTracks, action.payload]
-      };
-      break;
+      case 'ADD_AUDIO_GROUP':
+        newState = {
+          ...state,
+          audioTracks: [
+            ...state.audioTracks,
+            {
+              ...action.payload,
+              name: `Audio Track ${state.nextAudioTrackIndex}`,
+            }
+          ],
+          nextAudioTrackIndex: state.nextAudioTrackIndex + 1,
+        };
+        break;
 
     case 'UPDATE_AUDIO_TRACK_ITEM':
       newState = {
@@ -65,17 +74,17 @@ const reducer = (state = initialState, action) => {
         audioTracks: state.audioTracks.map(group =>
           group.id === action.payload.groupId
             ? {
-                ...group,
-                tracks: group.tracks.map(track =>
-                  track.id === action.payload.trackId
-                    ? {
-                        ...track,
-                        delayPx: action.payload.newDelayPx,
-                        startTime: Number((action.payload.newDelayPx * 0.01).toFixed(2))
-                      }
-                    : track
-                )
-              }
+              ...group,
+              tracks: group.tracks.map(track =>
+                track.id === action.payload.trackId
+                  ? {
+                    ...track,
+                    delayPx: action.payload.newDelayPx,
+                    startTime: Number((action.payload.newDelayPx * 0.01).toFixed(2))
+                  }
+                  : track
+              )
+            }
             : group
         )
       };
@@ -135,12 +144,20 @@ const reducer = (state = initialState, action) => {
       };
       break;
 
-    case 'ADD_VIDEO_GROUP':
-      newState = {
-        ...state,
-        videoTracks: [...state.videoTracks, action.payload]
-      };
-      break;
+      case 'ADD_VIDEO_GROUP':
+        newState = {
+          ...state,
+          videoTracks: [
+            ...state.videoTracks,
+            {
+              ...action.payload,
+              name: `Video Track ${state.nextVideoTrackIndex}`,
+            }
+          ],
+          nextVideoTrackIndex: state.nextVideoTrackIndex + 1,
+        };
+        break;
+      
 
     case 'UPDATE_VIDEO_TRACK_ITEM':
       newState = {
@@ -148,17 +165,17 @@ const reducer = (state = initialState, action) => {
         videoTracks: state.videoTracks.map(group =>
           group.id === action.payload.groupId
             ? {
-                ...group,
-                tracks: group.tracks.map(track =>
-                  track.id === action.payload.trackId
-                    ? {
-                        ...track,
-                        delayPx: action.payload.newDelayPx,
-                        startTime: Number((action.payload.newDelayPx * 0.01).toFixed(2))
-                      }
-                    : track
-                )
-              }
+              ...group,
+              tracks: group.tracks.map(track =>
+                track.id === action.payload.trackId
+                  ? {
+                    ...track,
+                    delayPx: action.payload.newDelayPx,
+                    startTime: Number((action.payload.newDelayPx * 0.01).toFixed(2))
+                  }
+                  : track
+              )
+            }
             : group
         )
       };
@@ -199,6 +216,53 @@ const reducer = (state = initialState, action) => {
     case 'SET_COMBINED_AUDIO_URL':
       newState = { ...state, combinedAudioUrl: action.payload };
       break;
+
+
+    case 'ADD_VIDEO_TRACK_URL': {
+      const { trackGroupId, url, duration } = action.payload;
+      const newTrack = {
+        id: Date.now(),
+        url,
+        thumbnail: '',
+        startTime: 0,
+        duration,               // 이제 payload에서 받아온 duration 사용
+        delayPx: 0,
+        width: Math.ceil(duration * 100) // duration 기반으로 폭 결정
+      };
+
+      return {
+        ...state,
+        videoTracks: state.videoTracks.map(group =>
+          group.id === trackGroupId
+            ? { ...group, tracks: [...group.tracks, newTrack] }
+            : group
+        )
+      };
+    }
+    case 'ADD_AUDIO_TRACK_URL': {
+      const { trackGroupId, url, duration, waveformImage = '' } = action.payload;
+    
+      const newTrack = {
+        id: Date.now(),
+        url,
+        duration,
+        startTime: 0,
+        delayPx: 0,
+        width: Math.ceil(duration * 100),
+        waveformImage,   // payload에서 받은 썸네일 데이터 사용
+      };
+    
+      return {
+        ...state,
+        audioTracks: state.audioTracks.map(group =>
+          group.id === trackGroupId
+            ? { ...group, tracks: [...group.tracks, newTrack] }
+            : group
+        )
+      };
+    }
+
+
 
     default:
       newState = state;

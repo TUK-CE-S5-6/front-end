@@ -1,6 +1,8 @@
+// src/components/Track/VideoTracks.jsx
 import React, { useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
+// 비디오 썸네일 합성 함수 (기존 그대로)
 async function generateCompositeThumbnail(file, interval = 1, thumbnailHeight = 90) {
   return new Promise((resolve, reject) => {
     const videoElem = document.createElement('video');
@@ -8,22 +10,21 @@ async function generateCompositeThumbnail(file, interval = 1, thumbnailHeight = 
     videoElem.muted = true;
     videoElem.playsInline = true;
     videoElem.src = URL.createObjectURL(file);
-    
+
     videoElem.onloadedmetadata = () => {
       const duration = videoElem.duration;
       const fullFrames = Math.floor(duration);
       const remainder = duration - fullFrames;
       const totalWidth = fullFrames * 100 + (remainder > 0 ? Math.ceil(remainder * 100) : 0);
-      
+
       const canvas = document.createElement('canvas');
       canvas.width = totalWidth;
       canvas.height = thumbnailHeight;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, totalWidth, thumbnailHeight);
-      
+
       let currentFrame = 0;
-      
       const captureNextFrame = () => {
         if (currentFrame < fullFrames) {
           videoElem.currentTime = currentFrame;
@@ -34,109 +35,77 @@ async function generateCompositeThumbnail(file, interval = 1, thumbnailHeight = 
           return;
         }
       };
-      
+
       videoElem.onseeked = () => {
         let frameWidth = 100;
         if (currentFrame === fullFrames && remainder > 0) {
           frameWidth = remainder * 100;
         }
-        const xPos = currentFrame * 100;
-        ctx.drawImage(videoElem, xPos, 0, frameWidth, thumbnailHeight);
+        ctx.drawImage(videoElem, currentFrame * 100, 0, frameWidth, thumbnailHeight);
         currentFrame++;
         captureNextFrame();
       };
-      
+
       captureNextFrame();
     };
-    
-    videoElem.onerror = (err) => {
-      reject(err);
-    };
+
+    videoElem.onerror = reject;
   });
 }
 
 const VideoTracks = () => {
   const dispatch = useDispatch();
   const videoTracks = useSelector(state => state.videoTracks);
-  // 전역 timelineDuration 값을 Redux에서 가져옵니다.
   const timelineDuration = useSelector(state => state.timelineDuration);
+
+  const videoFileInputRef = useRef(null);
+  const containerRefs = useRef({});
+
   const [uploadVideoGroupId, setUploadVideoGroupId] = useState(null);
   const [activeVideoMenuGroup, setActiveVideoMenuGroup] = useState(null);
   const [editingVideoGroupId, setEditingVideoGroupId] = useState(null);
   const [editingVideoName, setEditingVideoName] = useState('');
-  const videoFileInputRef = useRef(null);
-  
-  // 드래그 중인 아이템의 위치를 로컬 상태로 관리
   const [draggingItem, setDraggingItem] = useState(null);
-  // 각 그룹의 볼륨 슬라이더 값을 로컬 상태로 관리 (Redux 업데이트는 드래그 종료 시)
   const [localVolume, setLocalVolume] = useState({});
-  // 회색 영역(우측 트랙 영역)의 ref 추가
-  const containerRef = useRef(null);
 
-  // placeholder 비디오 아이템 추가 함수
-  const addVideoItem = (groupId) => {
-    const newItem = {
-      id: Date.now(),
-      startTime: 0,
-      duration: 10,
-      url: "video-placeholder.mp4",
-      thumbnail: "https://via.placeholder.com/150x80?text=Thumbnail",
-      delayPx: 0,
-      width: 20,
-    };
-    dispatch({
-      type: 'ADD_VIDEO_TRACKS',
-      payload: {
-        trackGroupId: groupId,
-        newTracks: [newItem]
-      }
-    });
-  };
-
-  // 드래그 이벤트: 로컬 상태를 사용하여 위치 업데이트 후 드래그 종료 시 한 번만 Redux 업데이트
-  const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0, itemWidth = 100) => {
+  // 비디오 아이템 드래그 위치 조정
+  const handleItemMouseDown = (e, groupId, itemId, initialDelayPx = 0, itemWidth = 100) => {
     const startX = e.clientX;
-    const initialLeft = currentDelayPx;
-    let finalDelayPx = currentDelayPx;
+    let finalDelayPx = initialDelayPx;
+    setDraggingItem({ groupId, trackId: itemId, newDelayPx: initialDelayPx });
 
-    setDraggingItem({
-      groupId,
-      trackId: itemId,
-      newDelayPx: currentDelayPx,
-    });
-
-    const onMouseMove = (moveEvent) => {
+    const onMouseMove = moveEvent => {
       const delta = moveEvent.clientX - startX;
-      let newLeft = initialLeft + delta;
-      // 회색 영역 내에서만 이동하도록 제한
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        newLeft = Math.max(0, Math.min(newLeft, containerWidth - itemWidth));
-      }
+      let newLeft = initialDelayPx + delta;
+      // container width 제한
+      const cw = containerRefs.current[groupId]?.offsetWidth || (timelineDuration * 100);
+      newLeft = Math.max(0, Math.min(newLeft, cw - itemWidth));
       finalDelayPx = newLeft;
-      setDraggingItem(prev => ({
-        ...prev,
-        newDelayPx: newLeft,
-      }));
+      setDraggingItem({ groupId, trackId: itemId, newDelayPx: newLeft });
     };
 
     const onMouseUp = () => {
-      const finalStartTime = finalDelayPx * 0.01;
+      const newStartTime = Number((finalDelayPx * 0.01).toFixed(2));
       dispatch({
         type: 'UPDATE_VIDEO_TRACK_ITEM',
-        payload: { groupId, trackId: itemId, newDelayPx: finalDelayPx, newStartTime: finalStartTime }
+        payload: {
+          groupId,
+          trackId: itemId,
+          newDelayPx: finalDelayPx,
+          newStartTime
+        }
       });
       setDraggingItem(null);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     };
 
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   };
 
-  // 파일 선택 창 열기
-  const handleUploadVideo = (groupId) => {
+  // 파일 업로드 버튼 클릭
+  const handleUploadVideo = groupId => {
     setUploadVideoGroupId(groupId);
     if (videoFileInputRef.current) {
       videoFileInputRef.current.value = null;
@@ -145,10 +114,10 @@ const VideoTracks = () => {
     setActiveVideoMenuGroup(null);
   };
 
-  // 파일 선택 후 처리: 썸네일 생성 후 비디오 아이템 추가
-  const handleVideoFileChange = async (e) => {
+  // 파일 선택 후 처리
+  const handleVideoFileChange = async e => {
     const file = e.target.files[0];
-    if (file && uploadVideoGroupId) {
+    if (file && uploadVideoGroupId != null) {
       const fileUrl = URL.createObjectURL(file);
       try {
         const video = document.createElement("video");
@@ -156,12 +125,12 @@ const VideoTracks = () => {
         video.muted = true;
         video.playsInline = true;
         video.src = fileUrl;
-        await new Promise((resolve, reject) => {
-          video.onloadedmetadata = () => resolve();
-          video.onerror = reject;
+        await new Promise((res, rej) => {
+          video.onloadedmetadata = res;
+          video.onerror = rej;
         });
         const duration = video.duration;
-        const thumbnail = await generateCompositeThumbnail(file, 1, 90);
+        const thumbnail = await generateCompositeThumbnail(file, 1, 100);
         const newItem = {
           id: Date.now(),
           startTime: 0,
@@ -173,115 +142,120 @@ const VideoTracks = () => {
         };
         dispatch({
           type: 'ADD_VIDEO_TRACKS',
-          payload: {
-            trackGroupId: uploadVideoGroupId,
-            newTracks: [newItem]
-          }
+          payload: { trackGroupId: uploadVideoGroupId, newTracks: [newItem] }
         });
+      } catch (err) {
+        console.error("Error processing video:", err);
+      } finally {
         setUploadVideoGroupId(null);
-      } catch (error) {
-        console.error("Error processing video file:", error);
       }
     }
   };
 
-  // 비디오 그룹 삭제 기능
-  const handleDeleteGroup = (groupId) => {
-    dispatch({
-      type: 'DELETE_VIDEO_GROUP',
-      payload: groupId
-    });
+  // 그룹 삭제
+  const handleDeleteGroup = groupId => {
+    dispatch({ type: 'DELETE_VIDEO_GROUP', payload: groupId });
     setActiveVideoMenuGroup(null);
   };
 
-  // 볼륨 슬라이더 로컬 상태 업데이트 (드래그 중)
-  const handleVolumeSliderChange = (groupId, value) => {
+  // 볼륨 슬라이더 변경
+  const handleVolumeSliderChange = (groupId, value) =>
     setLocalVolume(prev => ({ ...prev, [groupId]: value }));
-  };
 
-  // 볼륨 슬라이더 드래그 종료 시 최종값을 Redux에 업데이트
-  const handleVolumeSliderMouseUp = (groupId) => {
-    const finalVolume = localVolume[groupId];
-    if (finalVolume !== undefined) {
-      dispatch({
-        type: 'CHANGE_VIDEO_VOLUME',
-        payload: { groupId, volume: finalVolume }
-      });
+  const handleVolumeSliderMouseUp = groupId => {
+    const vol = localVolume[groupId];
+    if (vol != null) {
+      dispatch({ type: 'CHANGE_VIDEO_VOLUME', payload: { groupId, volume: vol } });
     }
   };
 
-  // 볼륨 토글 (0과 100 사이)
-  const handleVolumeToggleVideo = (group) => {
-    const newVolume = group.volume > 0 ? 0 : 100;
-    setLocalVolume(prev => ({ ...prev, [group.id]: newVolume }));
-    dispatch({
-      type: 'CHANGE_VIDEO_VOLUME',
-      payload: { groupId: group.id, volume: newVolume }
-    });
+  const handleVolumeToggleVideo = group => {
+    const newVol = group.volume > 0 ? 0 : 100;
+    setLocalVolume(prev => ({ ...prev, [group.id]: newVol }));
+    dispatch({ type: 'CHANGE_VIDEO_VOLUME', payload: { groupId: group.id, volume: newVol } });
   };
 
-  // 비디오 그룹 이름 편집 기능
-  const startEditingVideoName = (group) => {
+  // 그룹 이름 편집
+  const startEditingVideoName = group => {
     setEditingVideoGroupId(group.id);
     setEditingVideoName(group.name || '');
   };
 
-  const finishEditingVideoName = (groupId) => {
-    dispatch({
-      type: 'UPDATE_VIDEO_GROUP_NAME',
-      payload: { groupId, name: editingVideoName }
-    });
+  const finishEditingVideoName = groupId => {
+    dispatch({ type: 'UPDATE_VIDEO_GROUP_NAME', payload: { groupId, name: editingVideoName } });
     setEditingVideoGroupId(null);
     setEditingVideoName('');
   };
 
+  // 네이티브 Drop 처리
+  const handleDrop = (e, groupId) => {
+    e.preventDefault();
+    // UserFileManager에서 담은 JSON 파싱
+    const json = e.dataTransfer.getData('application/json');
+    if (!json) return;
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch {
+      return;
+    }
+    const { url, duration } = data;
+
+    dispatch({
+      type: 'ADD_VIDEO_TRACK_URL',
+      payload: {
+        trackGroupId: groupId,
+        url,
+        duration  // UserFileManager에서 넘어온 duration 사용
+      }
+    });
+    alert(`"${url}" 을(를) 트랙 ${groupId}에 추가했습니다. (길이: ${duration.toFixed(2)}초)`);
+  };
+
   return (
     <div>
-      {/* 숨겨진 비디오 파일 input */}
-      <input 
-        type="file" 
-        accept="video/*" 
-        ref={videoFileInputRef} 
-        style={{ display: 'none' }} 
-        onChange={handleVideoFileChange} 
+      <input
+        type="file"
+        accept="video/*"
+        ref={videoFileInputRef}
+        style={{ display: 'none' }}
+        onChange={handleVideoFileChange}
       />
+
       {videoTracks.map(group => (
-        <div key={group.id} style={{ marginBottom: '0px' }}>
+        <div key={group.id} style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', border: '1px solid #ccc' }}>
             {/* 좌측 메뉴 영역 */}
-            <div style={{ width: '210px', backgroundColor: '#eee', overflow: 'visible' }}>
+            <div style={{ width: 210, backgroundColor: '#eee', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editingVideoGroupId === group.id ? (
                   <input
                     type="text"
                     value={editingVideoName}
-                    onChange={(e) => setEditingVideoName(e.target.value)}
+                    onChange={e => setEditingVideoName(e.target.value)}
                     onBlur={() => finishEditingVideoName(group.id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') finishEditingVideoName(group.id); }}
+                    onKeyDown={e => e.key === 'Enter' && finishEditingVideoName(group.id)}
                     autoFocus
-                    style={{ fontSize: '12px', color: '#333' }}
+                    style={{ fontSize: 12, color: '#333' }}
                   />
                 ) : (
                   <span
-                    style={{ fontSize: '12px', color: '#333', cursor: 'pointer' }}
+                    style={{ fontSize: 12, color: '#333', cursor: 'pointer' }}
                     onClick={() => startEditingVideoName(group)}
                   >
                     {group.name || 'Video Group'}
                   </span>
                 )}
                 <div style={{ position: 'relative' }}>
-                  <button onClick={() => setActiveVideoMenuGroup(activeVideoMenuGroup === group.id ? null : group.id)}>
+                  <button onClick={() =>
+                    setActiveVideoMenuGroup(activeVideoMenuGroup === group.id ? null : group.id)
+                  }>
                     :
                   </button>
                   {activeVideoMenuGroup === group.id && (
                     <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: '100%',
-                      marginLeft: '10px',
-                      backgroundColor: '#fff',
-                      border: '1px solid #ccc',
-                      zIndex: 1
+                      position: 'absolute', top: 0, left: '100%', marginLeft: 10,
+                      backgroundColor: '#fff', border: '1px solid #ccc', zIndex: 1
                     }}>
                       <button onClick={() => handleUploadVideo(group.id)}>Upload Video</button>
                       <button onClick={() => handleDeleteGroup(group.id)}>Delete Group</button>
@@ -289,11 +263,13 @@ const VideoTracks = () => {
                   )}
                 </div>
               </div>
-              {/* 볼륨 슬라이더와 스피커 버튼 */}
-              <div style={{ display: 'flex', alignItems: 'center', height: '40px', width: '200px' }}>
-                <button 
+              <div style={{ display: 'flex', alignItems: 'center', height: 40, width: 200 }}>
+                <button
                   onClick={() => handleVolumeToggleVideo(group)}
-                  style={{ width: '40px', height: '40px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', marginRight: '5px' }}
+                  style={{
+                    width: 40, height: 40, background: 'none',
+                    border: 'none', cursor: 'pointer', fontSize: 16, marginRight: 5
+                  }}
                 >
                   {group.volume === 0 ? '🔇' : '🔊'}
                 </button>
@@ -302,63 +278,71 @@ const VideoTracks = () => {
                   min="0"
                   max="100"
                   step="1"
-                  value={localVolume[group.id] !== undefined ? localVolume[group.id] : group.volume}
-                  onChange={(e) => handleVolumeSliderChange(group.id, parseInt(e.target.value, 10))}
+                  value={localVolume[group.id] != null ? localVolume[group.id] : group.volume}
+                  onChange={e => handleVolumeSliderChange(group.id, parseInt(e.target.value, 10))}
                   onMouseUp={() => handleVolumeSliderMouseUp(group.id)}
                   onTouchEnd={() => handleVolumeSliderMouseUp(group.id)}
                   style={{ width: 'calc(100% - 45px)' }}
                 />
               </div>
             </div>
-            {/* 우측 트랙 영역 (회색 영역) - timelineDuration을 기반으로 너비 설정 */}
+
+            {/* 우측 트랙 + 네이티브 Drop 영역 */}
             <div
-              ref={containerRef}
+              ref={el => { containerRefs.current[group.id] = el }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => handleDrop(e, group.id)}
               style={{
-                flexGrow: 1,
-                backgroundColor: '#ddd',
-                position: 'relative',
-                height: '120px',
+                flexGrow: 1, backgroundColor: '#ddd', position: 'relative',
+                height: '100px',
                 width: `${timelineDuration * 100}px`,
-                flexShrink: 0,
-                minWidth: `${timelineDuration * 100}px`
+                minWidth: `${timelineDuration * 100}px`,
+                overflow: 'hidden'
               }}
             >
               {group.tracks.map(item => {
-                const leftValue = draggingItem && draggingItem.trackId === item.id
+                const left = draggingItem?.trackId === item.id
                   ? draggingItem.newDelayPx
                   : (item.delayPx || 0);
+
                 return (
                   <div
                     key={item.id}
                     style={{
                       position: 'absolute',
-                      left: `${leftValue}px`,
+                      left: `${left}px`,
+                      top: 0,
                       width: `${item.width || 150}px`,
+                      height: '100px',
                       cursor: 'grab',
                       userSelect: 'none'
                     }}
-                    onMouseDown={(e) =>
-                      handleItemMouseDown(e, group.id, item.id, item.delayPx, item.width || 150)
+                    onMouseDown={e =>
+                      handleItemMouseDown(
+                        e,
+                        group.id,
+                        item.id,
+                        item.delayPx,
+                        item.width || 150
+                      )
                     }
                   >
-                    <div style={{ pointerEvents: draggingItem && draggingItem.trackId === item.id ? 'none' : 'auto' }}>
-                      <img
-                        src={item.thumbnail}
-                        alt="video thumbnail"
-                        style={{ width: '100%', height: 'auto' }}
-                      />
-                      <div style={{ fontSize: '10px', color: '#000' }}>
-                        <p>Start: {(leftValue * 0.01).toFixed(2)}s</p>
-                      </div>
-                    </div>
+                    <img
+                      src={item.thumbnail}
+                      alt="thumb"
+                      draggable={false}                     // ← 브라우저 기본 드래그 방지
+                      onDragStart={e => e.preventDefault()} // ← 브라우저 기본 드래그 방지
+                      style={{ width: '100%', height: '100%' }}
+                    />
                   </div>
                 );
               })}
             </div>
           </div>
         </div>
-      ))}
-    </div>
+      ))
+      }
+    </div >
   );
 };
 

@@ -1,19 +1,16 @@
+// src/components/Track/AudioTracks.jsx
 import React, { useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
-// 수정된 파형 이미지 생성 함수: width와 height를 매개변수로 받음
+// 파형 이미지 생성 함수 (기존 그대로)
 const generateWaveformImage = (audioBuffer, width, height) => {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-
-    // 배경 채우기
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, width, height);
-
-    // 파형 그리기 (첫 번째 채널 데이터 사용)
     ctx.fillStyle = "#007bff";
     const rawData = audioBuffer.getChannelData(0);
     const samplesPerPixel = Math.floor(rawData.length / width);
@@ -33,75 +30,63 @@ const generateWaveformImage = (audioBuffer, width, height) => {
 const AudioTracks = () => {
   const dispatch = useDispatch();
   const audioTracks = useSelector(state => state.audioTracks);
-  const storeState = useSelector(state => state);
-  // timelineDuration 값(초 단위) from Redux
   const timelineDuration = useSelector(state => state.timelineDuration);
+  const storeState = useSelector(state => state); // <-- 전체 스토어 상태 가져오기
+
   const fileInputRef = useRef(null);
+  const containerRefs = useRef({});
+
   const [uploadGroupId, setUploadGroupId] = useState(null);
   const [activeMenuGroup, setActiveMenuGroup] = useState(null);
-  // 이름 편집을 위한 상태
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingName, setEditingName] = useState('');
-
-  // 드래그 중인 아이템 정보를 저장하는 로컬 상태
   const [draggingItem, setDraggingItem] = useState(null);
-  // 각 그룹의 볼륨 슬라이더 값을 로컬 상태로 관리
   const [localVolume, setLocalVolume] = useState({});
 
-  // 우측 트랙(회색 영역)의 ref 추가
-  const containerRef = useRef(null);
-
-  // 기본 placeholder 트랙 추가 함수
-  const addAudioItem = (groupId) => {
-    const duration = 5; // placeholder로 5초
-    const newItem = {
-      id: Date.now(),
-      startTime: 0,
-      duration,
-      url: "audio-placeholder.mp3",
-      waveformImage: "https://via.placeholder.com/100x40?text=Wave",
-      delayPx: 0,
-      width: Math.floor(duration * 100),
-    };
-    dispatch({
-      type: 'ADD_AUDIO_TRACKS',
-      payload: {
-        trackGroupId: groupId,
-        newTracks: [newItem]
+    // 드롭된 JSON (url, duration, waveformImage)을 받아서 Redux에 추가
+    const handleDropAudio = (e, groupId) => {
+      e.preventDefault();
+      const json = e.dataTransfer.getData('application/json');
+      if (!json) return;
+      let data;
+      try {
+        data = JSON.parse(json);
+      } catch {
+        return;
       }
-    });
-  };
+      const { url, duration, waveformImage = '' } = data;
+      dispatch({
+        type: 'ADD_AUDIO_TRACK_URL',
+        payload: {
+          trackGroupId: groupId,
+          url,
+          duration,
+          waveformImage
+        }
+      });
+      alert(`"${url}" 을(를) 오디오 트랙 ${groupId}에 추가했습니다. (길이: ${duration.toFixed(2)}초)`);
+    };
 
-  // 오디오 아이템 드래그 이벤트 처리 함수 (itemWidth 추가)
+  // 오디오 아이템 드래그 위치 조정
   const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0, itemWidth = 100) => {
     const startX = e.clientX;
-    const initialLeft = currentDelayPx;
     let finalDelayPx = currentDelayPx;
+    setDraggingItem({ groupId, trackId: itemId, newDelayPx: currentDelayPx });
 
-    // 드래그 시작 시 로컬 상태에 해당 아이템의 초기값 저장
-    setDraggingItem({
-      groupId,
-      trackId: itemId,
-      newDelayPx: currentDelayPx,
-    });
-
-    const onMouseMove = (moveEvent) => {
+    const onMouseMove = moveEvent => {
       const delta = moveEvent.clientX - startX;
-      let newLeft = initialLeft + delta;
-      // 회색 영역 내에서만 이동하도록 제한
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        newLeft = Math.max(0, Math.min(newLeft, containerWidth - itemWidth));
+      let newLeft = currentDelayPx + delta;
+      const container = containerRefs.current[groupId];
+      if (container) {
+        const cw = container.offsetWidth;
+        newLeft = Math.max(0, Math.min(newLeft, cw - itemWidth));
       }
       finalDelayPx = newLeft;
-      setDraggingItem(prev => ({
-        ...prev,
-        newDelayPx: newLeft,
-      }));
+      setDraggingItem(prev => ({ ...prev, newDelayPx: newLeft }));
     };
 
     const onMouseUp = () => {
-      const finalStartTime = finalDelayPx * 0.01;
+      const finalStartTime = Number((finalDelayPx * 0.01).toFixed(2));
       dispatch({
         type: 'UPDATE_AUDIO_TRACK_ITEM',
         payload: { groupId, trackId: itemId, newDelayPx: finalDelayPx, newStartTime: finalStartTime }
@@ -115,7 +100,7 @@ const AudioTracks = () => {
     window.addEventListener("mouseup", onMouseUp);
   };
 
-  // Upload Audio 버튼 클릭 시 파일 선택 창 열기
+  // 파일 업로드 버튼 클릭
   const handleUploadAudio = (groupId) => {
     setUploadGroupId(groupId);
     if (fileInputRef.current) {
@@ -125,21 +110,19 @@ const AudioTracks = () => {
     setActiveMenuGroup(null);
   };
 
-  // 파일 선택 후, 오디오 파일을 읽어 파형 이미지 생성 및 트랙 추가
+  // 파일 선택 후 처리
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file && uploadGroupId) {
+    if (file && uploadGroupId != null) {
       const fileUrl = URL.createObjectURL(file);
       try {
         const arrayBuffer = await file.arrayBuffer();
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const tempAudioCtx = new AudioContext();
-        const audioBuffer = await new Promise((resolve, reject) => {
-          tempAudioCtx.decodeAudioData(arrayBuffer, resolve, reject);
-        });
+        const tempCtx = new AudioContext();
+        const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
         const duration = audioBuffer.duration;
         const width = Math.floor(duration * 100);
-        const waveformImage = await generateWaveformImage(audioBuffer, width, 40);
+        const waveformImage = await generateWaveformImage(audioBuffer, width, 100);
         const newItem = {
           id: Date.now(),
           startTime: 0,
@@ -151,72 +134,51 @@ const AudioTracks = () => {
         };
         dispatch({
           type: 'ADD_AUDIO_TRACKS',
-          payload: {
-            trackGroupId: uploadGroupId,
-            newTracks: [newItem]
-          }
+          payload: { trackGroupId: uploadGroupId, newTracks: [newItem] }
         });
+        tempCtx.close();
+      } catch (err) {
+        console.error("Error processing audio file:", err);
+      } finally {
         setUploadGroupId(null);
-        tempAudioCtx.close();
-      } catch (error) {
-        console.error("Error processing audio file:", error);
       }
     }
   };
 
-  // 그룹 삭제
   const handleDeleteGroup = (groupId) => {
-    dispatch({
-      type: 'DELETE_AUDIO_GROUP',
-      payload: groupId,
-    });
+    dispatch({ type: 'DELETE_AUDIO_GROUP', payload: groupId });
     setActiveMenuGroup(null);
   };
 
-  // 볼륨 슬라이더 변경 시 로컬 상태 업데이트 (드래그 중)
-  const handleVolumeSliderChange = (groupId, value) => {
+  const handleVolumeChange = (groupId, value) =>
     setLocalVolume(prev => ({ ...prev, [groupId]: value }));
-  };
 
-  // 볼륨 슬라이더 드래그 종료 시 최종값을 Redux에 업데이트
-  const handleVolumeSliderMouseUp = (groupId) => {
-    const finalVolume = localVolume[groupId];
-    if (finalVolume !== undefined) {
-      dispatch({
-        type: 'CHANGE_AUDIO_VOLUME',
-        payload: { groupId, volume: finalVolume }
-      });
+  const handleVolumeMouseUp = (groupId) => {
+    const vol = localVolume[groupId];
+    if (vol != null) {
+      dispatch({ type: 'CHANGE_AUDIO_VOLUME', payload: { groupId, volume: vol } });
     }
   };
 
-  // 스피커 버튼 클릭 시, 현재 볼륨이 0이면 100으로, 0이 아니면 0으로 토글
-  const handleVolumeToggle = (group) => {
-    const newVolume = group.volume > 0 ? 0 : 100;
-    dispatch({
-      type: 'CHANGE_AUDIO_VOLUME',
-      payload: { groupId: group.id, volume: newVolume }
-    });
+  const toggleVolume = (group) => {
+    const newVol = group.volume > 0 ? 0 : 100;
+    setLocalVolume(prev => ({ ...prev, [group.id]: newVol }));
+    dispatch({ type: 'CHANGE_AUDIO_VOLUME', payload: { groupId: group.id, volume: newVol } });
   };
 
-  // 그룹 이름 편집 시작
-  const startEditingName = (group) => {
+  const startEditName = (group) => {
     setEditingGroupId(group.id);
     setEditingName(group.name);
   };
 
-  // 그룹 이름 편집 완료 (엔터 또는 블러 시)
-  const finishEditingName = (groupId) => {
-    dispatch({
-      type: 'UPDATE_AUDIO_GROUP_NAME',
-      payload: { groupId, name: editingName }
-    });
+  const finishEditName = (groupId) => {
+    dispatch({ type: 'UPDATE_AUDIO_GROUP_NAME', payload: { groupId, name: editingName } });
     setEditingGroupId(null);
     setEditingName('');
   };
 
   return (
     <div>
-      {/* 숨겨진 파일 input */}
       <input
         type="file"
         accept="audio/*"
@@ -224,60 +186,54 @@ const AudioTracks = () => {
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
+
       {audioTracks.map(group => (
-        <div key={group.id} style={{ marginBottom: '0px' }}>
-          <div style={{ display: 'flex', border: '1px solid #ccc', marginBottom: '0px' }}>
-            {/* 좌측 메뉴 영역 (padding 제거) */}
-            <div style={{ width: '210px', backgroundColor: '#eee', overflow: 'visible' }}>
-              {/* 그룹 이름과 메뉴 버튼 */}
+        <div key={group.id} style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', border: '1px solid #ccc' }}>
+            {/* 좌측 메뉴 영역 */}
+            <div style={{ width: 210, backgroundColor: '#eee', overflow: 'visible' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editingGroupId === group.id ? (
                   <input
                     type="text"
                     value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={() => finishEditingName(group.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') finishEditingName(group.id);
-                    }}
+                    onChange={e => setEditingName(e.target.value)}
+                    onBlur={() => finishEditName(group.id)}
+                    onKeyDown={e => e.key === 'Enter' && finishEditName(group.id)}
                     autoFocus
-                    style={{ fontSize: '12px' }}
+                    style={{ fontSize: 12, color: '#333' }}
                   />
                 ) : (
                   <span
-                    style={{ fontSize: '12px', color: '#333', cursor: 'pointer' }}
-                    onClick={() => startEditingName(group)}
+                    style={{ fontSize: 12, color: '#333', cursor: 'pointer' }}
+                    onClick={() => startEditName(group)}
                   >
                     {group.name}
                   </span>
                 )}
                 <div style={{ position: 'relative' }}>
-                  <button onClick={() => setActiveMenuGroup(activeMenuGroup === group.id ? null : group.id)}>
-                    :
-                  </button>
+                  <button onClick={() =>
+                    setActiveMenuGroup(activeMenuGroup === group.id ? null : group.id)
+                  }>:</button>
                   {activeMenuGroup === group.id && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: '100%',
-                        marginLeft: '10px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #ccc',
-                        zIndex: 1
-                      }}
-                    >
+                    <div style={{
+                      position: 'absolute', top: 0, left: '100%', marginLeft: 10,
+                      backgroundColor: '#fff', border: '1px solid #ccc', zIndex: 1
+                    }}>
                       <button onClick={() => handleUploadAudio(group.id)}>Upload Audio</button>
                       <button onClick={() => handleDeleteGroup(group.id)}>Delete Group</button>
                     </div>
                   )}
                 </div>
               </div>
-              {/* 볼륨 슬라이더와 스피커 버튼 (padding 제거) */}
-              <div style={{ display: 'flex', alignItems: 'center', height: '40px', width: '200px' }}>
+
+              <div style={{ display: 'flex', alignItems: 'center', height: 40, width: 200 }}>
                 <button
-                  onClick={() => handleVolumeToggle(group)}
-                  style={{ width: '40px', height: '40px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', marginRight: '5px' }}
+                  onClick={() => toggleVolume(group)}
+                  style={{
+                    width: 40, height: 40, background: 'none',
+                    border: 'none', cursor: 'pointer', fontSize: 16, marginRight: 5
+                  }}
                 >
                   {group.volume === 0 ? '🔇' : '🔊'}
                 </button>
@@ -286,60 +242,59 @@ const AudioTracks = () => {
                   min="0"
                   max="100"
                   step="1"
-                  value={localVolume[group.id] !== undefined ? localVolume[group.id] : group.volume}
-                  onChange={(e) =>
-                    handleVolumeSliderChange(group.id, parseInt(e.target.value, 10))
-                  }
-                  onMouseUp={() => handleVolumeSliderMouseUp(group.id)}
-                  onTouchEnd={() => handleVolumeSliderMouseUp(group.id)}
+                  value={localVolume[group.id] != null ? localVolume[group.id] : group.volume}
+                  onChange={e => handleVolumeChange(group.id, parseInt(e.target.value, 10))}
+                  onMouseUp={() => handleVolumeMouseUp(group.id)}
+                  onTouchEnd={() => handleVolumeMouseUp(group.id)}
                   style={{ width: 'calc(100% - 45px)' }}
                 />
               </div>
             </div>
-            {/* 우측 트랙 영역 (회색 영역) - padding 제거 */}
+
+            {/* 우측 트랙 + DropZone */}
             <div
-              ref={containerRef}
+              ref={el => { containerRefs.current[group.id] = el }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => handleDropAudio(e, group.id)}
               style={{
+                flexGrow: 1,
                 backgroundColor: '#ddd',
                 position: 'relative',
                 height: '100px',
+                // ↓ 여기가 핵심: timelineDuration * 100px 만큼 너비를 고정
                 width: `${timelineDuration * 100}px`,
-                flexShrink: 0,
-                minWidth: `${timelineDuration * 100}px`
+                minWidth: `${timelineDuration * 100}px`,
+                overflow: 'hidden'
               }}
             >
               {group.tracks.map(item => {
-                // 드래그 중인 아이템이면 로컬 상태의 newDelayPx 사용, 아니면 Redux 상태의 delayPx 사용
-                const leftValue = draggingItem && draggingItem.trackId === item.id
+                const left = draggingItem?.trackId === item.id
                   ? draggingItem.newDelayPx
                   : (item.delayPx || 0);
+
                 return (
                   <div
                     key={item.id}
                     style={{
                       position: 'absolute',
-                      left: `${leftValue}px`,
-                      width: `${item.width || 100}px`,
-                      height: '40px',
+                      left: `${left}px`,
+                      top: 0,
+                      width: `${item.width || 150}px`,
+                      height: '100px',
                       cursor: 'grab',
                       userSelect: 'none'
                     }}
-                    onMouseDown={(e) =>
-                      handleItemMouseDown(e, group.id, item.id, item.delayPx, item.width || 100)
+                    onMouseDown={e =>
+                      handleItemMouseDown(e, group.id, item.id, item.delayPx, item.width || 150)
                     }
                   >
-                    {/* 자식 요소에 pointer-events 적용 */}
-                    <div style={{ pointerEvents: draggingItem && draggingItem.trackId === item.id ? 'none' : 'auto' }}>
-                      <img
-                        src={item.waveformImage}
-                        alt="audio waveform"
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                      <div style={{ fontSize: '10px', color: '#000' }}>
-                        <p>Start: {(leftValue * 0.01).toFixed(2)}s</p>
-                        <p>Duration: {item.duration ? item.duration.toFixed(2) : 'N/A'}s</p>
-                      </div>
-                    </div>
+                    <img
+                      src={item.waveformImage}
+                      alt="audio waveform"
+                      draggable={false}                     // ← 브라우저 기본 드래그 방지
+                      onDragStart={e => e.preventDefault()} // ← 브라우저 기본 드래그 방지
+                      style={{ width: '100%', height: '100%' }}
+                    />
                   </div>
                 );
               })}
@@ -347,8 +302,14 @@ const AudioTracks = () => {
           </div>
         </div>
       ))}
-      {/* 전체 store 상태 출력 (padding 제거) */}
-      <div style={{ marginTop: '40px', border: '1px solid #000', backgroundColor: '#f9f9f9' }}>
+
+      {/* 맨 아래 디버깅용 Store State */}
+      <div style={{
+        marginTop: '40px',
+        border: '1px solid #000',
+        backgroundColor: '#f9f9f9',
+        padding: '10px'
+      }}>
         <h3>Store State</h3>
         <pre style={{ fontSize: '12px' }}>
           {JSON.stringify(storeState, null, 2)}

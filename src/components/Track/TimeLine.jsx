@@ -76,7 +76,7 @@ const Timeline = () => {
         width: timelineWidth,
         height: '40px',
         border: '1px solid #ccc',
-        marginLeft: '210px'  // 오른쪽으로 220px에서 10px 줄여 210px로 이동
+        marginLeft: '200px'  // 오른쪽으로 220px에서 10px 줄여 210px로 이동
       }}
     >
       {ticks}

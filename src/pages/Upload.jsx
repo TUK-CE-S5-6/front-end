@@ -99,7 +99,7 @@ function VideoUpload() {
     });
 
     // 화자별 그룹 생성 및 waveformImage 생성
-    const baseUrl = "http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/";
+    const baseUrl = "http://175.116.3.178:8000/";
     for (const speaker in groupsBySpeaker) {
       const tracks = await Promise.all(groupsBySpeaker[speaker].map(async (tts) => {
         let waveformImage = "";
@@ -147,7 +147,7 @@ function VideoUpload() {
 
     try {
       const uploadResponse = await fetch(
-        'http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/upload-video',
+        'http://175.116.3.178:8000/upload-video',
         {
           method: 'POST',
           body: formData,
@@ -213,7 +213,7 @@ function VideoUpload() {
           </p>
           <video controls width="600">
             <source
-              src={`http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/videos/${videoData.video.file_name}`}
+              src={`http://175.116.3.178:8000/videos/${videoData.video.file_name}`}
               type="video/mp4"
             />
             브라우저가 비디오 태그를 지원하지 않습니다.

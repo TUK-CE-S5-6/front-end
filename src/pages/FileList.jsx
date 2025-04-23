@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 
-const baseUrl = 'http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000';
+const baseUrl = 'http://175.116.3.178:8000';
 
 // 모달 컴포넌트: 현재 Redux store에 존재하는 오디오 그룹(트랙 그룹)을 버튼으로 보여줌
 const AudioTrackSelectorModal = ({ audioFileInfo, onSelect, onCancel }) => {

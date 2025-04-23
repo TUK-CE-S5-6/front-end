@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import Home from './pages/App2';
 import SignUp from './pages/SignUp';
 import Header from './components/Header';
 import Upload from './pages/Upload';
@@ -12,6 +14,10 @@ import Track from './components/Track/Track';
 import Viewer from './components/Viewer/Viewer';
 import FileDetails from './pages/file-details';
 import FileList from './pages/FileList';
+import UserFileManage from './pages/UserFilemanage';
+import ProjectInfor from './pages/ProjectInfor'; // 수정된 상세 페이지 컴포넌트
+import UserAudio from './pages/UserAudio';
+import UserVideo from './pages/UserVideo'; 
 
 function App() {
   // FormData 상태를 App.js에서 관리
@@ -90,68 +96,75 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Header />
-      <div
-        className="container"
-        ref={containerRef}
-        style={{
-          gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`
-        }}
-      >
-        {/* 상단 영역: 좌측은 라우팅 페이지, 우측은 VideoViewer */}
-        <div className="topRow" ref={topRowRef} style={{ gridColumn: '1 / span 2', display: 'flex', gap: '10px' }}>
+      {/* 모든 하위 컴포넌트를 DndProvider로 감싸서 react-dnd 컨텍스트를 제공 */}
+      <DndProvider backend={HTML5Backend}>
+        <Header />
+        <div
+          className="container"
+          ref={containerRef}
+          style={{
+            gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`
+          }}
+        >
+          {/* 상단 영역: 좌측은 라우팅 페이지, 우측은 VideoViewer */}
           <div
-            className="topLeft"
-            style={{
-              width: `${topLeftWidth}px`,
-              backgroundColor: 'lightblue'
-            }}
+            className="topRow"
+            ref={topRowRef}
+            style={{ gridColumn: '1 / span 2', display: 'flex', gap: '10px' }}
           >
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/upload" element={<Upload />} />
-              <Route path="/stt" element={<Stt />} />
-              <Route path="/audio" element={<AudioGenerator />} />
-              <Route path="/file-details" element={<FileDetails />} />
-              <Route path="/filelist" element={<FileList />} />
-              <Route path="*" element={<h2>404 Not Found</h2>} />
-              
-            </Routes>
+            <div
+              className="topLeft"
+              style={{
+                width: `${topLeftWidth}px`,
+                backgroundColor: 'lightblue'
+              }}
+            >
+              <Routes>
+                <Route path="/editor/:projectId" element={<ProjectInfor />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="/upload" element={<Upload />} />
+                <Route path="/stt" element={<Stt />} />
+                <Route path="/audio" element={<AudioGenerator />} />
+                <Route path="/file-details" element={<FileDetails />} />
+                <Route path="/filelist" element={<FileList />} />
+                <Route path="/userfilemanage" element={<UserFileManage />} />
+                <Route path="/useraudio" element={<UserAudio />} />
+                <Route path="/uservideo" element={<UserVideo />} />
+                <Route path="*" element={<h2>404 Not Found</h2>} />
+              </Routes>
+            </div>
+            {/* Vertical splitter */}
+            <div
+              className="vertical-splitter"
+              onMouseDown={handleVerticalSplitterMouseDown}
+              style={{
+                width: `${verticalSplitterWidth}px`,
+                backgroundColor: '#ccc',
+                cursor: 'col-resize'
+              }}
+            ></div>
+            <div className="topRight" style={{ flexGrow: 1, backgroundColor: 'lightcoral' }}>
+              {/* 비디오 뷰어 */}
+              <Viewer />
+            </div>
           </div>
-          {/* Vertical splitter */}
+          {/* Horizontal splitter */}
           <div
-            className="vertical-splitter"
-            onMouseDown={handleVerticalSplitterMouseDown}
+            className="horizontal-splitter"
+            onMouseDown={handleHorizontalSplitterMouseDown}
             style={{
-              width: `${verticalSplitterWidth}px`,
+              gridColumn: '1 / span 2',
               backgroundColor: '#ccc',
-              cursor: 'col-resize'
+              cursor: 'row-resize'
             }}
           ></div>
-          <div className="topRight" style={{ flexGrow: 1, backgroundColor: 'lightcoral' }}>
-            {/*비디오 뷰어 만들꺼임 */}
-            <Viewer />
+          {/* 하단 영역: Track 컴포넌트 */}
+          <div className="bottom" style={{ gridColumn: '1 / span 2' }}>
+            <Track />
           </div>
         </div>
-
-        {/* Horizontal splitter */}
-        <div
-          className="horizontal-splitter"
-          onMouseDown={handleHorizontalSplitterMouseDown}
-          style={{
-            gridColumn: '1 / span 2',
-            backgroundColor: '#ccc',
-            cursor: 'row-resize'
-          }}
-        ></div>
-
-        {/* 하단 영역: CombinedTrack */}
-        <div className="bottom" style={{ gridColumn: '1 / span 2' }}>
-            {/*트랙 만들꺼 */}
-            <Track />
-        </div>
-      </div>
+      </DndProvider>
     </BrowserRouter>
   );
 }

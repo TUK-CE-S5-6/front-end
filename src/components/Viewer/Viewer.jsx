@@ -10,7 +10,7 @@ const Viewer = () => {
   const [videoTimeouts, setVideoTimeouts] = useState([]);
   const [audioTimeouts, setAudioTimeouts] = useState([]);
   const [animationFrameId, setAnimationFrameId] = useState(null);
-  const baseUrl = "http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/";
+  const baseUrl = "http://175.116.3.178:8000/";
 
   // 기존 videoTracks 관련 캔버스 드로잉 (변경 없음)
   const drawCanvas = () => {

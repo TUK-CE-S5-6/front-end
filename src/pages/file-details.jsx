@@ -18,7 +18,7 @@ function FileDetails() {
       }
       try {
         const response = await axios.get(
-          `http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/file-details?filename=${encodeURIComponent(
+          `http://175.116.3.178:8000/file-details?filename=${encodeURIComponent(
             filename
           )}`
         );
@@ -40,7 +40,7 @@ function FileDetails() {
           <h2>Uploaded Video</h2>
           <video controls width="600">
             <source
-              src={`http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/videos/${details.video.file_name}`}
+              src={`http://175.116.3.178:8000/videos/${details.video.file_name}`}
               type="video/mp4"
             />
             브라우저가 비디오 태그를 지원하지 않습니다.
@@ -48,7 +48,7 @@ function FileDetails() {
           <h2>Extracted Audio</h2>
           <audio controls>
             <source
-              src={`http://ec2-3-107-168-194.ap-southeast-2.compute.amazonaws.com:8000/extracted_audio/${details.extracted_audio.file_name}`}
+              src={`http://175.116.3.178:8000/extracted_audio/${details.extracted_audio.file_name}`}
               type="audio/mp3"
             />
           </audio>
