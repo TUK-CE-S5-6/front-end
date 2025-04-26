@@ -1,30 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import Home from './pages/App2';
-import SignUp from './pages/SignUp';
+import { NavLink, Outlet, useParams } from 'react-router-dom';
+
 import Header from './components/Header';
-import Upload from './pages/Upload';
-import Stt from './pages/SttVideo';
-import AudioGenerator from './pages/audio';
+
 import './App.css';
 import './Layout.css';
 import Track from './components/Track/Track';
 import Viewer from './components/Viewer/Viewer';
-import FileDetails from './pages/file-details';
-import FileList from './pages/FileList';
-import UserFileManage from './pages/UserFilemanage';
-import ProjectInfor from './pages/ProjectInfor'; // 수정된 상세 페이지 컴포넌트
-import UserAudio from './pages/UserAudio';
-import UserVideo from './pages/UserVideo';
-import User from './User';
-import TTS from './pages/TTS';
-import TTS2 from './pages/TTS2';
-import Script from './pages/Script';
-function App() {
+
+
+function User() {
   // FormData 상태를 App.js에서 관리
   const [formData, setFormData] = useState(new FormData());
+  const [activeView, setActiveView] = useState('project'); // 기본적으로 Project Info 뷰를 활성화
+  // URL 파라미터에서 projectId를 가져옵니다
+  const { projectId } = useParams();
   // 상단 영역 및 하단 영역 크기 조절 관련 상태들 (splitter 관련 코드 포함)
   const [topLeftWidth, setTopLeftWidth] = useState(300);
   const [bottomHeight, setBottomHeight] = useState(400);
@@ -98,39 +88,74 @@ function App() {
   const topHeight = `calc(100vh - ${bottomHeight + horizontalSplitterHeight}px)`;
 
   return (
-    <BrowserRouter>
-      {/* 모든 하위 컴포넌트를 DndProvider로 감싸서 react-dnd 컨텍스트를 제공 */}
-      <DndProvider backend={HTML5Backend}>
+    <div>
+      <div
+        className="container"
+        ref={containerRef}
+        style={{
+          gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`
+        }}
+      >
+        {/* 상단 영역: 좌측은 여러 페이지, 우측은 VideoViewer */}
+        <div
+          className="topRow"
+          ref={topRowRef}
+          style={{ gridColumn: '1 / span 2', display: 'flex', gap: '10px' }}
+        >
+          <div
+            className="topLeft"
+            style={{
+              width: `${topLeftWidth}px`,
+              backgroundColor: 'lightblue'
+            }}
+          >
+            <nav style={{ padding: '8px', borderBottom: '1px solid #ccc', display: 'flex', gap: '4px' }}>
+              <NavLink to="" end style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>Info</NavLink>
+              <NavLink to="files" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>Files</NavLink>
+              <NavLink to="tts" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>tts</NavLink>
+              <NavLink to="tts2" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>tts2</NavLink>
+              <NavLink to="script" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>script</NavLink>  
+            </nav>
+
+            {/* 중첩 라우트의 컴포넌트를 여기에 렌더링 */}
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <Outlet context={{ projectId }} />
+            </div>
 
 
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/upload" element={<Upload />} />
-          <Route path="/stt" element={<Stt />} />
-          <Route path="/audio" element={<AudioGenerator />} />
-          <Route path="/file-details" element={<FileDetails />} />
-          <Route path="/filelist" element={<FileList />} />
-          <Route path="/userfilemanage" element={<UserFileManage />} />
-          <Route path="/useraudio" element={<UserAudio />} />
-          <Route path="/uservideo" element={<UserVideo />} />
-
-          {/* ↓ 중첩 라우트 */}
-          <Route path="/editor/:projectId" element={<User />}>
-            <Route index element={<ProjectInfor />} />
-            <Route path="files" element={<UserFileManage />} />
-            <Route path="tts" element={<TTS />} />
-            <Route path="tts2" element={<TTS2 />} />
-            <Route path="script" element={<Script />} />
-
-          </Route>
-
-          <Route path="*" element={<h2>404 Not Found</h2>} />
-        </Routes>
-
-      </DndProvider>
-    </BrowserRouter>
+          </div>
+          {/* Vertical splitter */}
+          <div
+            className="vertical-splitter"
+            onMouseDown={handleVerticalSplitterMouseDown}
+            style={{
+              width: `${verticalSplitterWidth}px`,
+              backgroundColor: '#ccc',
+              cursor: 'col-resize'
+            }}
+          ></div>
+          <div className="topRight" style={{ flexGrow: 1, backgroundColor: 'lightcoral' }}>
+            {/* 비디오 뷰어 */}
+            <Viewer />
+          </div>
+        </div>
+        {/* Horizontal splitter */}
+        <div
+          className="horizontal-splitter"
+          onMouseDown={handleHorizontalSplitterMouseDown}
+          style={{
+            gridColumn: '1 / span 2',
+            backgroundColor: '#ccc',
+            cursor: 'row-resize'
+          }}
+        ></div>
+        {/* 하단 영역: Track 컴포넌트 */}
+        <div className="bottom" style={{ gridColumn: '1 / span 2' }}>
+          <Track />
+        </div>
+      </div>
+    </div>
   );
 }
 
-export default App;
+export default User;

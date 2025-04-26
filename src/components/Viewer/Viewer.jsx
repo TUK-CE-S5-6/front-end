@@ -12,41 +12,46 @@ const Viewer = () => {
   const [animationFrameId, setAnimationFrameId] = useState(null);
   const baseUrl = "http://175.116.3.178:8000/";
 
-  // 기존 videoTracks 관련 캔버스 드로잉 (변경 없음)
   const drawCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-    // 각 그룹의 트랙 중 재생 중인(readyState>=2, 아직 재생이 끝나지 않은) 비디오들을 모읍니다.
+    // 재생 중인(readyState>=2) 비디오 중에서
+    // 현재 재생 위치가 [startTime, startTime+duration) 범위 안에 있는 것만 필터링
     const playingTracks = [];
     videoTracks.forEach(group => {
       group.tracks.forEach(track => {
         const videoElem = videoElementsRef.current[track.id];
-        if (videoElem && videoElem.readyState >= 2 && videoElem.currentTime < videoElem.duration) {
-          playingTracks.push({ group, track, videoElem });
+        if (videoElem && videoElem.readyState >= 2) {
+          const elapsed = videoElem.currentTime - (track.startTime || 0);
+          if (elapsed >= 0 && elapsed < track.duration) {
+            playingTracks.push({ group, track, videoElem });
+          }
         }
       });
     });
   
     if (playingTracks.length > 0) {
-      // 우선순위 정렬:
-      // 1. 다른 그룹이라면 group.id가 낮은(먼저 생성된) 그룹이 우선.
-      // 2. 같은 그룹 내에서는 track.startTime이 낮은(먼저 시작한) 트랙이 우선.
+      // 1) 시작시간 오름차순  
+      // 2) 시작시간 같으면 track.id 오름차순
       playingTracks.sort((a, b) => {
-        if (a.group.id !== b.group.id) {
-          return a.group.id - b.group.id;
+        if (a.track.startTime !== b.track.startTime) {
+          return a.track.startTime - b.track.startTime;
         }
-        return a.track.startTime - b.track.startTime;
+        // track.id가 숫자형이 아닐 경우 parseInt 해주세요
+        return a.track.id - b.track.id;
       });
-      const topTrack = playingTracks[0];
-      ctx.drawImage(topTrack.videoElem, 0, 0, canvas.width, canvas.height);
+  
+      // 가장 우선순위가 높은 트랙만 그리기
+      const { videoElem } = playingTracks[0];
+      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
     }
   
-    const frameId = requestAnimationFrame(drawCanvas);
-    setAnimationFrameId(frameId);
+    setAnimationFrameId(requestAnimationFrame(drawCanvas));
   };
+  
   
 
   // 비디오 재생 예약 함수 (변경 없음)

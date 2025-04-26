@@ -187,30 +187,43 @@ const VideoTracks = () => {
     setEditingVideoName('');
   };
 
-  // 네이티브 Drop 처리
-  const handleDrop = (e, groupId) => {
-    e.preventDefault();
-    // UserFileManager에서 담은 JSON 파싱
-    const json = e.dataTransfer.getData('application/json');
-    if (!json) return;
-    let data;
-    try {
-      data = JSON.parse(json);
-    } catch {
-      return;
-    }
-    const { url, duration } = data;
+ // 네이티브 Drop 처리
+ const handleDrop = (e, groupId) => {
+  e.preventDefault();
+  const json =
+    e.dataTransfer.getData('application/json') ||
+    e.dataTransfer.getData('text/plain');
+  if (!json) return;
 
-    dispatch({
-      type: 'ADD_VIDEO_TRACK_URL',
-      payload: {
-        trackGroupId: groupId,
-        url,
-        duration  // UserFileManager에서 넘어온 duration 사용
-      }
-    });
-    alert(`"${url}" 을(를) 트랙 ${groupId}에 추가했습니다. (길이: ${duration.toFixed(2)}초)`);
-  };
+  let data;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    return;
+  }
+
+  const { url, duration, thumbnailUrl, waveformImage, fileName } = data;
+
+  dispatch({
+    type: 'ADD_VIDEO_TRACK_URL',
+    payload: {
+      trackGroupId: groupId,
+      url,
+      duration,
+      thumbnailUrl,    // dispatch에 thumbnailUrl로 전달
+      waveformImage
+    }
+  });
+
+  alert(
+    `"${fileName}" 을(를) 트랙 ${groupId}에 추가했습니다.` +
+    (duration ? ` (길이: ${duration.toFixed(2)}초)` : '') +
+    (thumbnailUrl ? ' 썸네일도 함께 전달됨' : '')
+  );
+};
+
+
+
 
   return (
     <div>

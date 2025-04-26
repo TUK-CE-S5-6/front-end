@@ -43,29 +43,43 @@ const AudioTracks = () => {
   const [draggingItem, setDraggingItem] = useState(null);
   const [localVolume, setLocalVolume] = useState({});
 
-    // 드롭된 JSON (url, duration, waveformImage)을 받아서 Redux에 추가
-    const handleDropAudio = (e, groupId) => {
-      e.preventDefault();
-      const json = e.dataTransfer.getData('application/json');
-      if (!json) return;
-      let data;
-      try {
-        data = JSON.parse(json);
-      } catch {
-        return;
+
+  const handleDropAudio = (e, groupId) => {
+    e.preventDefault();
+  
+    // JSON or text 타입으로 데이터 꺼내기
+    const json =
+      e.dataTransfer.getData('application/json') ||
+      e.dataTransfer.getData('text/plain');
+    if (!json) return;
+  
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch {
+      return;
+    }
+  
+    // payload에서 thumbnailUrl도 꺼내기
+    const { url, duration, waveformImage = '', thumbnailUrl, fileName } = data;
+  
+    dispatch({
+      type: 'ADD_AUDIO_TRACK_URL',
+      payload: {
+        trackGroupId: groupId,
+        url,
+        duration,
+        waveformImage,
+        thumbnailUrl,    // 이제 이 필드가 스토어로 넘어갑니다
       }
-      const { url, duration, waveformImage = '' } = data;
-      dispatch({
-        type: 'ADD_AUDIO_TRACK_URL',
-        payload: {
-          trackGroupId: groupId,
-          url,
-          duration,
-          waveformImage
-        }
-      });
-      alert(`"${url}" 을(를) 오디오 트랙 ${groupId}에 추가했습니다. (길이: ${duration.toFixed(2)}초)`);
-    };
+    });
+  
+    alert(
+      `"${fileName}" 을(를) 오디오 트랙 ${groupId}에 추가했습니다.` +
+      (thumbnailUrl ? ' 썸네일도 함께 전달됨' : '')
+    );
+  };
+  
 
   // 오디오 아이템 드래그 위치 조정
   const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0, itemWidth = 100) => {

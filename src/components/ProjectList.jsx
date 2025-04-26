@@ -2,71 +2,68 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createAxiosInstance } from '../api';
 
-const BASE_URL =
-  'http://175.116.3.178:8000';
+const BASE_URL = 'http://175.116.3.178:8000';
 
 function ProjectList({ token }) {
   const [projects, setProjects] = useState([]);
-  const [selectedProjects, setSelectedProjects] = useState([]); // 삭제할 프로젝트 ID 목록
+  const [selectedProjects, setSelectedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // fetchProjects 함수를 useCallback으로 감싸서 token 변경 시에만 새로 생성되도록 함
   const fetchProjects = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const api = createAxiosInstance(token);
       const res = await api.get('/projects');
-      setProjects(res.data.projects || []);
-    } catch (error) {
-      console.error(error);
+      // 썸네일 URL에 video_id 사용
+      const projectsWithThumb = (res.data.projects || []).map((proj) => ({
+        ...proj,
+        thumbnail_url: `${BASE_URL}/thumbnails/${proj.video_id}.jpg`,
+      }));
+      setProjects(projectsWithThumb);
+    } catch (err) {
+      console.error(err);
+      setError('프로젝트를 불러오는 중 오류가 발생했습니다.');
       setProjects([]);
     }
     setLoading(false);
   }, [token]);
 
-  // useEffect 의존성 배열에 fetchProjects를 포함하여 함수의 최신 버전을 사용하도록 함
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  // 프로젝트 카드 클릭 시 상세 페이지로 이동
   const handleProjectClick = (projectId) => {
     navigate(`/editor/${projectId}`);
   };
 
-  // 체크박스 상태 변경
   const toggleProjectSelection = (projectId) => {
-    setSelectedProjects((prevSelected) =>
-      prevSelected.includes(projectId)
-        ? prevSelected.filter((id) => id !== projectId)
-        : [...prevSelected, projectId]
+    setSelectedProjects((prev) =>
+      prev.includes(projectId)
+        ? prev.filter((id) => id !== projectId)
+        : [...prev, projectId]
     );
   };
 
-  // 선택한 프로젝트 삭제 (휴지통 버튼)
   const handleDeleteProjects = async () => {
     if (selectedProjects.length === 0) {
       alert('삭제할 프로젝트를 선택하세요.');
       return;
     }
-    if (!window.confirm('선택한 프로젝트를 삭제하시겠습니까?')) {
-      return;
-    }
-
+    if (!window.confirm('선택한 프로젝트를 삭제하시겠습니까?')) return;
     try {
       const api = createAxiosInstance(token);
-      // 여러 프로젝트를 반복적으로 삭제 (백엔드 DELETE 엔드포인트: /projects/{project_id})
-      for (const projectId of selectedProjects) {
-        await api.delete(`/projects/${projectId}`);
-      }
-      alert('선택한 프로젝트가 삭제되었습니다.');
-      // 삭제 후, 삭제 상태 초기화하고 새로고침
+      await Promise.all(
+        selectedProjects.map((id) => api.delete(`/projects/${id}`))
+      );
       setSelectedProjects([]);
       fetchProjects();
-    } catch (error) {
-      console.error(error);
-      alert(error?.response?.data?.detail || '삭제에 실패했습니다.');
+      alert('선택한 프로젝트가 삭제되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert(err?.response?.data?.detail || '삭제에 실패했습니다.');
     }
   };
 
@@ -77,6 +74,8 @@ function ProjectList({ token }) {
         <button onClick={fetchProjects}>새로고침</button>
         <button onClick={handleDeleteProjects}>휴지통</button>
       </div>
+
+      {error && <p style={styles.error}>{error}</p>}
       {loading ? (
         <p>로딩 중...</p>
       ) : projects.length === 0 ? (
@@ -85,6 +84,14 @@ function ProjectList({ token }) {
         <div style={styles.grid}>
           {projects.map((proj) => (
             <div key={proj.project_id} style={styles.card}>
+              {/* 썸네일 */}
+              <img
+                src={proj.thumbnail_url || '/placeholder.png'}
+                alt={proj.project_name}
+                style={styles.thumb}
+                onClick={() => handleProjectClick(proj.project_id)}
+              />
+              {/* 프로젝트 이름 및 체크박스 */}
               <div style={styles.cardHeader}>
                 <input
                   type="checkbox"
@@ -92,22 +99,15 @@ function ProjectList({ token }) {
                   onChange={() => toggleProjectSelection(proj.project_id)}
                   style={styles.checkbox}
                 />
-                <div
+                <h4
                   onClick={() => handleProjectClick(proj.project_id)}
-                  style={{ cursor: 'pointer', flexGrow: 1 }}
+                  style={{ cursor: 'pointer', margin: 0 }}
                 >
-                  <h4>{proj.project_name}</h4>
-                </div>
+                  {proj.project_name}
+                </h4>
               </div>
-              <p>{proj.description}</p>
-              <img
-                src={`${BASE_URL}/videos/${
-                  proj.file_name || 'placeholder.png'
-                }`}
-                alt={proj.project_name}
-                style={styles.thumb}
-                onClick={() => handleProjectClick(proj.project_id)}
-              />
+              {/* 설명 */}
+              <p style={styles.description}>{proj.description}</p>
             </div>
           ))}
         </div>
@@ -138,21 +138,36 @@ const styles = {
     padding: '8px',
     backgroundColor: '#fff',
     position: 'relative',
-  },
-  cardHeader: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    marginBottom: '8px',
-  },
-  checkbox: {
-    cursor: 'pointer',
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   thumb: {
     width: '100%',
     height: '100px',
     objectFit: 'cover',
     cursor: 'pointer',
+    borderRadius: '4px',
+    marginBottom: '8px',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '4px',
+  },
+  checkbox: {
+    cursor: 'pointer',
+  },
+  description: {
+    marginTop: '4px',
+    fontSize: '14px',
+    color: '#555',
+    flexGrow: 1,
+  },
+  error: {
+    color: '#dc3545',
+    marginBottom: '12px',
   },
 };
 

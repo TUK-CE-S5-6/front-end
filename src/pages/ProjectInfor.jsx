@@ -146,7 +146,7 @@ function ProjectInfor() {
                 ? tts.file_path
                 : `${BASE_URL}/${p}`;
               let img = '';
-              try { img = await fetchWaveform(u); } catch {};
+              try { img = await fetchWaveform(u); } catch { };
               return {
                 id: tts.tts_id,
                 startTime: tts.start_time,
@@ -155,6 +155,8 @@ function ProjectInfor() {
                 waveformImage: img,
                 delayPx: Math.floor(tts.start_time * 100),
                 width: Math.floor(tts.duration * 100),
+                originalText: tts.original_text,     // ← 추가
+                translatedText: tts.translated_text // ← 추가
               };
             }));
             dispatch({ type: 'ADD_AUDIO_TRACKS', payload: { trackGroupId: spGroupId, newTracks: tracks } });
@@ -201,7 +203,7 @@ function ProjectInfor() {
                 <p><strong>원본 텍스트:</strong> {tts.original_text}</p>
                 <p><strong>번역 텍스트:</strong> {tts.translated_text}</p>
                 <audio controls>
-                  <source src={`${BASE_URL}/extracted_audio/${tts.file_path.replace(/^extracted_audio[\\/]/,'')}`} type="audio/mp3" />
+                  <source src={`${BASE_URL}/extracted_audio/${tts.file_path.replace(/^extracted_audio[\\/]/, '')}`} type="audio/mp3" />
                 </audio>
               </div>
             ))

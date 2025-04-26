@@ -46,27 +46,29 @@ const reducer = (state = initialState, action) => {
     case 'ADD_AUDIO_TRACKS':
       newState = {
         ...state,
-        audioTracks: state.audioTracks.map(group =>
-          group.id === action.payload.trackGroupId
-            ? { ...group, tracks: [...group.tracks, ...action.payload.newTracks] }
-            : group
-        )
+        audioTracks: state.audioTracks.map(group => {
+          if (group.id !== action.payload.trackGroupId) return group;
+          // 중복 ID 필터링
+          const existingIds = new Set(group.tracks.map(t => t.id));
+          const uniqueNew = action.payload.newTracks.filter(t => !existingIds.has(t.id));
+          return { ...group, tracks: [...group.tracks, ...uniqueNew] };
+        })
       };
       break;
 
-      case 'ADD_AUDIO_GROUP':
-        newState = {
-          ...state,
-          audioTracks: [
-            ...state.audioTracks,
-            {
-              ...action.payload,
-              name: `Audio Track ${state.nextAudioTrackIndex}`,
-            }
-          ],
-          nextAudioTrackIndex: state.nextAudioTrackIndex + 1,
-        };
-        break;
+    case 'ADD_AUDIO_GROUP':
+      newState = {
+        ...state,
+        audioTracks: [
+          ...state.audioTracks,
+          {
+            ...action.payload,
+            name: `Audio Track ${state.nextAudioTrackIndex}`,
+          }
+        ],
+        nextAudioTrackIndex: state.nextAudioTrackIndex + 1,
+      };
+      break;
 
     case 'UPDATE_AUDIO_TRACK_ITEM':
       newState = {
@@ -136,28 +138,30 @@ const reducer = (state = initialState, action) => {
     case 'ADD_VIDEO_TRACKS':
       newState = {
         ...state,
-        videoTracks: state.videoTracks.map(group =>
-          group.id === action.payload.trackGroupId
-            ? { ...group, tracks: [...group.tracks, ...action.payload.newTracks] }
-            : group
-        )
+        videoTracks: state.videoTracks.map(group => {
+          if (group.id !== action.payload.trackGroupId) return group;
+          // 중복 ID 필터링
+          const existingIds = new Set(group.tracks.map(t => t.id));
+          const uniqueNew = action.payload.newTracks.filter(t => !existingIds.has(t.id));
+          return { ...group, tracks: [...group.tracks, ...uniqueNew] };
+        })
       };
       break;
 
-      case 'ADD_VIDEO_GROUP':
-        newState = {
-          ...state,
-          videoTracks: [
-            ...state.videoTracks,
-            {
-              ...action.payload,
-              name: `Video Track ${state.nextVideoTrackIndex}`,
-            }
-          ],
-          nextVideoTrackIndex: state.nextVideoTrackIndex + 1,
-        };
-        break;
-      
+    case 'ADD_VIDEO_GROUP':
+      newState = {
+        ...state,
+        videoTracks: [
+          ...state.videoTracks,
+          {
+            ...action.payload,
+            name: `Video Track ${state.nextVideoTrackIndex}`,
+          }
+        ],
+        nextVideoTrackIndex: state.nextVideoTrackIndex + 1,
+      };
+      break;
+
 
     case 'UPDATE_VIDEO_TRACK_ITEM':
       newState = {
@@ -219,17 +223,16 @@ const reducer = (state = initialState, action) => {
 
 
     case 'ADD_VIDEO_TRACK_URL': {
-      const { trackGroupId, url, duration } = action.payload;
-      const newTrack = {
+     const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
+    const newTrack = {
         id: Date.now(),
         url,
-        thumbnail: '',
+        thumbnail: thumbnailUrl || '',  // store의 thumbnail 필드에 thumbnailUrl 매핑
         startTime: 0,
-        duration,               // 이제 payload에서 받아온 duration 사용
+        duration: duration || 0,
         delayPx: 0,
-        width: Math.ceil(duration * 100) // duration 기반으로 폭 결정
+        width: Math.ceil((duration || 0) * 100)
       };
-
       return {
         ...state,
         videoTracks: state.videoTracks.map(group =>
@@ -240,27 +243,33 @@ const reducer = (state = initialState, action) => {
       };
     }
     case 'ADD_AUDIO_TRACK_URL': {
-      const { trackGroupId, url, duration, waveformImage = '' } = action.payload;
+        const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
+      
+        const newTrack = {
+          id: Date.now(),
+          url,
+          duration,
+          startTime: 0,
+          delayPx: 0,
+          width: Math.ceil((duration || 0) * 100),
+          waveformImage,
+         thumbnailUrl,  // 이제 드랍 핸들러에서 보낸 thumbnailUrl이 여기에 저장됩니다
+        };
+      
+        return {
+          ...state,
+          audioTracks: state.audioTracks.map(group => {
+            if (group.id !== trackGroupId) return group;
+            const ids = new Set(group.tracks.map(t => t.id));
+            if (ids.has(newTrack.id)) return group;
+            return { ...group, tracks: [...group.tracks, newTrack] };
+          })
+        };
+      }
     
-      const newTrack = {
-        id: Date.now(),
-        url,
-        duration,
-        startTime: 0,
-        delayPx: 0,
-        width: Math.ceil(duration * 100),
-        waveformImage,   // payload에서 받은 썸네일 데이터 사용
-      };
+      
+      
     
-      return {
-        ...state,
-        audioTracks: state.audioTracks.map(group =>
-          group.id === trackGroupId
-            ? { ...group, tracks: [...group.tracks, newTrack] }
-            : group
-        )
-      };
-    }
 
 
 

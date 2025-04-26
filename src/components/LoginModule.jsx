@@ -1,10 +1,33 @@
-// LoginModule.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createAxiosInstance } from '../api';
 
 function LoginModule({ onLogin, onLogout, loggedInUser }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  // ✅ 자동 로그인 처리
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userId = localStorage.getItem('userId');
+    const savedUsername = localStorage.getItem('username');
+    console.log(
+      '[AutoLogin] token:',
+      token,
+      'userId:',
+      userId,
+      'username:',
+      savedUsername
+    );
+
+    if (token && userId) {
+      setUsername(savedUsername || '');
+      if (!loggedInUser) {
+        console.log('[AutoLogin] Triggering onLogin');
+        onLogin({ token, userId: parseInt(userId) });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async () => {
     try {
@@ -12,10 +35,22 @@ function LoginModule({ onLogin, onLogout, loggedInUser }) {
       const formData = new FormData();
       formData.append('username', username);
       formData.append('password', password);
+
+      console.log('[Login] Attempting login with username:', username);
       const res = await api.post('/login', formData);
-      // 성공 시 부모로 로그인 정보 전달
-      onLogin({ token: res.data.token, userId: res.data.user_id });
+
+      const token = res.data.token;
+      const userId = res.data.user_id;
+
+      console.log('[Login] Login successful. userId:', userId, 'token:', token);
+
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userId', userId);
+      localStorage.setItem('username', username);
+
+      onLogin({ token, userId });
     } catch (error) {
+      console.error('[Login] Login failed:', error);
       alert(error?.response?.data?.detail || '로그인 실패');
     }
   };
@@ -26,11 +61,24 @@ function LoginModule({ onLogin, onLogout, loggedInUser }) {
       const formData = new FormData();
       formData.append('username', username);
       formData.append('password', password);
+
+      console.log('[Signup] Attempting signup with username:', username);
       await api.post('/signup', formData);
       alert('회원가입 성공! 이제 로그인해주세요.');
     } catch (error) {
+      console.error('[Signup] Signup failed:', error);
       alert(error?.response?.data?.detail || '회원가입 실패');
     }
+  };
+
+  const handleLogoutClick = () => {
+    console.log('[Logout] Logging out');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    onLogout();
+    setUsername('');
+    setPassword('');
   };
 
   return (
@@ -39,7 +87,7 @@ function LoginModule({ onLogin, onLogout, loggedInUser }) {
       {loggedInUser ? (
         <div style={styles.loggedInBox}>
           <span>{username} 님</span>
-          <button onClick={onLogout}>로그아웃</button>
+          <button onClick={handleLogoutClick}>로그아웃</button>
         </div>
       ) : (
         <div style={styles.loginBox}>
