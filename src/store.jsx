@@ -109,6 +109,37 @@ const reducer = (state = initialState, action) => {
         audioTracks: state.audioTracks.filter(group => group.id !== action.payload)
       };
       break;
+    case 'DELETE_VIDEO_TRACK_ITEM':
+      newState = {
+        ...state,
+        videoTracks: state.videoTracks.map(group =>
+          group.id === action.payload.groupId
+            ? {
+              ...group,
+              tracks: group.tracks.filter(
+                track => track.id !== action.payload.trackId
+              )
+            }
+            : group
+        )
+      };
+      break;
+
+    case 'DELETE_AUDIO_TRACK_ITEM':
+      newState = {
+        ...state,
+        audioTracks: state.audioTracks.map(group =>
+          group.id === action.payload.groupId
+            ? {
+              ...group,
+              tracks: group.tracks.filter(
+                track => track.id !== action.payload.trackId
+              )
+            }
+            : group
+        )
+      };
+      break;
 
     case 'UPDATE_AUDIO_GROUP_NAME':
       newState = {
@@ -223,8 +254,8 @@ const reducer = (state = initialState, action) => {
 
 
     case 'ADD_VIDEO_TRACK_URL': {
-     const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
-    const newTrack = {
+      const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
+      const newTrack = {
         id: Date.now(),
         url,
         thumbnail: thumbnailUrl || '',  // store의 thumbnail 필드에 thumbnailUrl 매핑
@@ -243,33 +274,33 @@ const reducer = (state = initialState, action) => {
       };
     }
     case 'ADD_AUDIO_TRACK_URL': {
-        const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
-      
-        const newTrack = {
-          id: Date.now(),
-          url,
-          duration,
-          startTime: 0,
-          delayPx: 0,
-          width: Math.ceil((duration || 0) * 100),
-          waveformImage,
-         thumbnailUrl,  // 이제 드랍 핸들러에서 보낸 thumbnailUrl이 여기에 저장됩니다
-        };
-      
-        return {
-          ...state,
-          audioTracks: state.audioTracks.map(group => {
-            if (group.id !== trackGroupId) return group;
-            const ids = new Set(group.tracks.map(t => t.id));
-            if (ids.has(newTrack.id)) return group;
-            return { ...group, tracks: [...group.tracks, newTrack] };
-          })
-        };
-      }
-    
-      
-      
-    
+      const { trackGroupId, url, duration, waveformImage = '', thumbnailUrl = '' } = action.payload;
+
+      const newTrack = {
+        id: Date.now(),
+        url,
+        duration,
+        startTime: 0,
+        delayPx: 0,
+        width: Math.ceil((duration || 0) * 100),
+        waveformImage,
+        thumbnailUrl,  // 이제 드랍 핸들러에서 보낸 thumbnailUrl이 여기에 저장됩니다
+      };
+
+      return {
+        ...state,
+        audioTracks: state.audioTracks.map(group => {
+          if (group.id !== trackGroupId) return group;
+          const ids = new Set(group.tracks.map(t => t.id));
+          if (ids.has(newTrack.id)) return group;
+          return { ...group, tracks: [...group.tracks, newTrack] };
+        })
+      };
+    }
+
+
+
+
 
 
 

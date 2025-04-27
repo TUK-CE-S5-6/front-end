@@ -1,5 +1,5 @@
 // src/components/Track/AudioTracks.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 
 // 파형 이미지 생성 함수 (기존 그대로)
@@ -27,7 +27,10 @@ const generateWaveformImage = (audioBuffer, width, height) => {
   });
 };
 
+
 const AudioTracks = () => {
+  // 컨텍스트 메뉴 상태 관리
+
   const dispatch = useDispatch();
   const audioTracks = useSelector(state => state.audioTracks);
   const timelineDuration = useSelector(state => state.timelineDuration);
@@ -44,25 +47,58 @@ const AudioTracks = () => {
   const [localVolume, setLocalVolume] = useState({});
 
 
+  // ← 이 부분을 여기에 추가해야 ctxMenu가 정의됩니다!
+  // 컨텍스트 메뉴 상태 관리
+  const [ctxMenu, setCtxMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    groupId: null,
+    trackId: null
+  });
+
+  // 외부 클릭 시 컨텍스트 메뉴 닫기
+  useEffect(() => {
+    const onClickOutside = () => {
+      if (ctxMenu.visible) setCtxMenu(c => ({ ...c, visible: false }));
+    };
+    window.addEventListener('click', onClickOutside);
+    return () => window.removeEventListener('click', onClickOutside);
+  }, [ctxMenu.visible]);
+
+  // 우클릭 핸들러
+  const handleContextMenu = (e, groupId, trackId) => {
+    e.preventDefault();
+    setCtxMenu({ visible: true, x: e.clientX, y: e.clientY, groupId, trackId });
+  };
+
+  // 삭제 버튼 클릭 핸들러
+  const handleDeleteItem = () => {
+    dispatch({
+      type: 'DELETE_AUDIO_TRACK_ITEM',
+      payload: { groupId: ctxMenu.groupId, trackId: ctxMenu.trackId }
+    });
+    setCtxMenu(c => ({ ...c, visible: false }));
+  };
   const handleDropAudio = (e, groupId) => {
     e.preventDefault();
-  
+
     // JSON or text 타입으로 데이터 꺼내기
     const json =
       e.dataTransfer.getData('application/json') ||
       e.dataTransfer.getData('text/plain');
     if (!json) return;
-  
+
     let data;
     try {
       data = JSON.parse(json);
     } catch {
       return;
     }
-  
+
     // payload에서 thumbnailUrl도 꺼내기
     const { url, duration, waveformImage = '', thumbnailUrl, fileName } = data;
-  
+
     dispatch({
       type: 'ADD_AUDIO_TRACK_URL',
       payload: {
@@ -73,13 +109,13 @@ const AudioTracks = () => {
         thumbnailUrl,    // 이제 이 필드가 스토어로 넘어갑니다
       }
     });
-  
+
     alert(
       `"${fileName}" 을(를) 오디오 트랙 ${groupId}에 추가했습니다.` +
       (thumbnailUrl ? ' 썸네일도 함께 전달됨' : '')
     );
   };
-  
+
 
   // 오디오 아이템 드래그 위치 조정
   const handleItemMouseDown = (e, groupId, itemId, currentDelayPx = 0, itemWidth = 100) => {
@@ -287,7 +323,9 @@ const AudioTracks = () => {
                   : (item.delayPx || 0);
 
                 return (
+
                   <div
+                    onContextMenu={e => { e.preventDefault(); handleContextMenu(e, group.id, item.id); }}
                     key={item.id}
                     style={{
                       position: 'absolute',
@@ -317,6 +355,28 @@ const AudioTracks = () => {
         </div>
       ))}
 
+
+      {/* 컨텍스트 메뉴 */}
+      {ctxMenu.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            top: ctxMenu.y,
+            left: ctxMenu.x,
+            background: '#fff',
+            border: '1px solid #ccc',
+            padding: 4,
+            zIndex: 1000
+          }}
+        >
+          <button onClick={handleDeleteItem} style={{ cursor: 'pointer' }}>
+            Delete Audio Item
+          </button>
+        </div>
+      )
+      }
+
+
       {/* 맨 아래 디버깅용 Store State */}
       <div style={{
         marginTop: '40px',
@@ -329,7 +389,7 @@ const AudioTracks = () => {
           {JSON.stringify(storeState, null, 2)}
         </pre>
       </div>
-    </div>
+    </div >
   );
 };
 
