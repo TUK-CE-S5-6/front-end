@@ -2,6 +2,69 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 
+
+/**
+ * 비디오 URL을 받아 16:9 (160×90) 크기의 썸네일을
+ * intervalSec 간격으로 캡처한 이미지를 가로로 이어붙입니다.
+ * 마지막 프레임은 캔버스 너비가 부족한 만큼 잘려서 표시됩니다.
+ *
+ * @param {string} videoUrl    비디오 파일의 URL
+ * @param {number} intervalSec 캡처 간격(초), 기본 1.8
+ * @returns {Promise<string>}  data:image/png;base64,… 형태의 이미지
+ */
+async function generateVideoCompositeThumbnail(videoUrl, intervalSec = 1.8) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.src = videoUrl;
+
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      const frameW = 160;
+      const frameH = 90;
+      const count = Math.ceil(duration / intervalSec);
+      // 마지막 프레임의 가로 크기 계산
+      const lastSec = duration - intervalSec * (count - 1);
+      const lastWidth = frameW * (lastSec / intervalSec);
+
+      // 캔버스 크기 설정
+      const canvas = document.createElement('canvas');
+      canvas.width = frameW * (count - 1) + lastWidth;
+      canvas.height = frameH;
+      const ctx = canvas.getContext('2d');
+
+      let idx = 0;
+      video.onseeked = () => {
+        // (원본 전체) → (캔버스에 프레임 크기로 그리기)
+        ctx.drawImage(
+          video,
+          0, 0, video.videoWidth, video.videoHeight,
+          idx * frameW, 0,
+          frameW, frameH
+        );
+        idx++;
+        if (idx < count) {
+          // 다음 시각으로 이동
+          video.currentTime = Math.min(idx * intervalSec, duration);
+        } else {
+          // 모든 프레임 처리 완료
+          resolve(canvas.toDataURL('image/png'));
+        }
+      };
+
+      // 첫 프레임부터 시작
+      video.currentTime = 0;
+    };
+
+    video.onerror = (e) => {
+      reject(new Error('비디오 썸네일 생성 중 오류 발생: ' + e.message));
+    };
+  });
+}
+
 const BASE_URL = 'http://175.116.3.178:8000';
 
 // 중복 생성 방지용 Sets
@@ -31,11 +94,16 @@ async function fetchWaveform(url) {
   for (let i = 0; i < width; i++) {
     let sum = 0;
     for (let j = 0; j < step; j++) sum += Math.abs(data[i * step + j]);
-    const bar = (sum / step) * height;
+    const rawBar = (sum / step) * height * 3;
+    const bar = Math.min(rawBar, height);
     c.fillRect(i, (height - bar) / 2, 1, bar);
   }
   return canvas.toDataURL();
 }
+
+
+
+
 
 function ProjectInfor() {
   const { projectId } = useParams();
@@ -70,7 +138,7 @@ function ProjectInfor() {
               type: 'ADD_VIDEO_GROUP',
               payload: {
                 id: videoGroupId,
-                volume: 100,
+                volume: 0,
                 name: `Video Track 1`,
                 tracks: []
               }
@@ -82,6 +150,12 @@ function ProjectInfor() {
             ? info.video.file_path
             : `${BASE_URL}/${info.video.file_path.replace(/^\//, '')}`;
           const videoDuration = info.video.duration || 0;
+          let thumb = '';
+          try {
+            thumb = await generateVideoCompositeThumbnail(videoUrl);
+          } catch (e) {
+            console.error('비디오 썸네일 생성 실패', e);
+          }
           dispatch({
             type: 'ADD_VIDEO_TRACKS',
             payload: {
@@ -91,7 +165,7 @@ function ProjectInfor() {
                 startTime: 0,
                 duration: videoDuration,
                 url: videoUrl,
-                thumbnail: '',
+                thumbnail: thumb,
                 delayPx: 0,
                 width: Math.floor(videoDuration * 100),
               }]

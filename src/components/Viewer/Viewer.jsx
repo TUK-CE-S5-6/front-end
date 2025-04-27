@@ -9,8 +9,9 @@ const Viewer = () => {
   const audioElementsRef = useRef({}); // { [track.id]: HTMLAudioElement }
   const [videoTimeouts, setVideoTimeouts] = useState([]);
   const [audioTimeouts, setAudioTimeouts] = useState([]);
-  const [animationFrameId, setAnimationFrameId] = useState(null);
   const baseUrl = "http://175.116.3.178:8000/";
+  const animationFrameRef = useRef(null);
+
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -18,41 +19,48 @@ const Viewer = () => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-    // 재생 중인(readyState>=2) 비디오 중에서
-    // 현재 재생 위치가 [startTime, startTime+duration) 범위 안에 있는 것만 필터링
+    // 1) 현재 재생 중인 트랙만 모으기
     const playingTracks = [];
     videoTracks.forEach(group => {
       group.tracks.forEach(track => {
         const videoElem = videoElementsRef.current[track.id];
-        if (videoElem && videoElem.readyState >= 2) {
+        if (
+          videoElem &&
+          videoElem.readyState >= 2 &&
+          !videoElem.paused
+        ) {
           const elapsed = videoElem.currentTime - (track.startTime || 0);
           if (elapsed >= 0 && elapsed < track.duration) {
-            playingTracks.push({ group, track, videoElem });
+            playingTracks.push({ track, videoElem });
           }
         }
       });
     });
   
     if (playingTracks.length > 0) {
-      // 1) 시작시간 오름차순  
-      // 2) 시작시간 같으면 track.id 오름차순
+      // 2) ID 숫자값이 낮은 트랙이 위로 오도록,
+      //    큰 ID부터(먼저) 작은 ID 순으로 정렬
       playingTracks.sort((a, b) => {
-        if (a.track.startTime !== b.track.startTime) {
-          return a.track.startTime - b.track.startTime;
-        }
-        // track.id가 숫자형이 아닐 경우 parseInt 해주세요
-        return a.track.id - b.track.id;
+        const toNum = id =>
+          parseInt((id + '').match(/\d+$/)?.[0] ?? '0', 10);
+        return toNum(b.track.id) - toNum(a.track.id);
       });
   
-      // 가장 우선순위가 높은 트랙만 그리기
-      const { videoElem } = playingTracks[0];
-      ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+      // 3) 정렬된 순서대로 그리기 — 배열의 마지막 요소(가장 작은 ID)가 최상단에 렌더링
+      playingTracks.forEach(({ videoElem }) => {
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+      });
     }
   
-    setAnimationFrameId(requestAnimationFrame(drawCanvas));
+    // 4) 다음 프레임 예약
+    animationFrameRef.current = requestAnimationFrame(drawCanvas);
   };
   
   
+  
+
+
+
 
   // 비디오 재생 예약 함수 (변경 없음)
   const handleVideoPlay = () => {
@@ -160,9 +168,10 @@ const Viewer = () => {
     setVideoTimeouts([]);
     audioTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     setAudioTimeouts([]);
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-      setAnimationFrameId(null);
+    // ref에 저장된 ID로 취소
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
     Object.values(videoElementsRef.current).forEach(videoElem => {
       if (videoElem) {

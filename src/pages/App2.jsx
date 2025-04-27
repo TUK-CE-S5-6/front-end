@@ -4,7 +4,7 @@ import LoginModule from '../components/LoginModule';
 import ProjectAddModule from '../components/ProjectAddModule';
 import ProjectList from '../components/ProjectList';
 
-function App() {
+function App2() {
   const [authInfo, setAuthInfo] = useState(null);
 
   const handleLogin = (data) => {
@@ -85,4 +85,4 @@ const styles = {
   },
 };
 
-export default App;
+export default App2;
