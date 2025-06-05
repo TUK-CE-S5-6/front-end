@@ -14,7 +14,8 @@ const MergeAndPreviewPage = () => {
   const [videoTimeouts, setVideoTimeouts] = useState([]);
   const [audioTimeouts, setAudioTimeouts] = useState([]);
 
-    const wrapText = (ctx, text, maxWidth) => {
+  // 자막 텍스트 줄바꿈 해주는 함수
+  const wrapText = (ctx, text, maxWidth) => {
     const words = text.split(' ');
     const lines = [];
     let line = '';
@@ -33,8 +34,41 @@ const MergeAndPreviewPage = () => {
     return lines;
   };
 
+  // 텍스트를 2줄로 맞추는 함수
+  // 기본 폰트 크기와 최소 폰트 크기를 설정할 수 있음
+  const fitTextToTwoLines = (ctx, text, maxWidth, baseFontSize = 28, minFontSize = 14) => {
+    let fontSize = baseFontSize;
+    let lines = [];
 
-  const drawCanvas = () => {
+    while (fontSize >= minFontSize) {
+      ctx.font = `${fontSize}px sans-serif`;
+      lines = wrapText(ctx, text, maxWidth);
+
+      if (lines.length <= 2) {
+        break; // 2줄 이내로 들어오면 성공
+      }
+      fontSize -= 1;
+    }
+
+    // 너무 길면 2줄로 자르고 말줄임 추가
+    if (lines.length > 2) {
+      lines = lines.slice(0, 2);
+      const lastLine = lines[1];
+      const ellipsis = '...';
+      let shortened = lastLine;
+
+      while (ctx.measureText(shortened + ellipsis).width > maxWidth && shortened.length > 0) {
+        shortened = shortened.slice(0, -1);
+      }
+
+      lines[1] = shortened + ellipsis;
+    }
+
+    return { fontSize, lines };
+  };
+
+  // 자막 fitTextToTwoLines 함수 적용 드로잉
+  const drawCanvasFitFont = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -58,21 +92,17 @@ const MergeAndPreviewPage = () => {
     });
 
     if (playingTracks.length > 0) {
-      // ID 기준으로 정렬
       playingTracks.sort((a, b) => {
         const toNum = id => parseInt((id + '').match(/\d+$/)?.[0] ?? '0', 10);
         return toNum(b.track.id) - toNum(a.track.id);
       });
 
-      // 모든 비디오 트랙 그리기
       playingTracks.forEach(({ videoElem }) => {
         ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
       });
 
-      // 자막은 가장 위에 그리기
       const currentTime = playingTracks[playingTracks.length - 1].videoElem.currentTime;
 
-      // audioTracks에서 현재 시간에 맞는 translatedText 출력
       // 자막 출력
       audioTracks.forEach(group => {
         group.tracks.forEach(track => {
@@ -84,8 +114,13 @@ const MergeAndPreviewPage = () => {
             currentTime <= textEnd &&
             track.translatedText
           ) {
-            // 텍스트 스타일 지정
-            ctx.font = '28px sans-serif';
+            const maxTextWidth = canvas.width - 40;
+            const lineHeight = 36;
+
+            // 자동 폰트 조절 및 2줄 제한
+            const { fontSize, lines } = fitTextToTwoLines(ctx, track.translatedText, maxTextWidth);
+
+            ctx.font = `${fontSize}px sans-serif`;
             ctx.fillStyle = 'white';
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 4;
@@ -93,17 +128,9 @@ const MergeAndPreviewPage = () => {
             ctx.shadowColor = 'black';
             ctx.shadowBlur = 2;
 
-            const maxTextWidth = canvas.width - 40;
-            const lineHeight = 36;
-
-            // 자막 줄바꿈 처리
-            const lines = wrapText(ctx, track.translatedText, maxTextWidth);
-
-            // 줄 수에 따라 자막 위치를 자동 위로 조정
             const totalHeight = lines.length * lineHeight;
             const x = canvas.width / 2;
-            const minY = 50;
-            const baseY = Math.max(canvas.height - totalHeight - 20, minY);
+            const baseY = canvas.height - totalHeight - 20;
 
             lines.forEach((line, i) => {
               const y = baseY + i * lineHeight;
@@ -113,14 +140,11 @@ const MergeAndPreviewPage = () => {
           }
         });
       });
+    }
 
-
-    };
-
-
-    // 다음 프레임 예약
-    animationFrameRef.current = requestAnimationFrame(drawCanvas);
+    animationFrameRef.current = requestAnimationFrame(drawCanvasFitFont);
   };
+
 
 
   const handleVideoPlay = () => {
@@ -195,7 +219,7 @@ const MergeAndPreviewPage = () => {
     handleStop();
     handleVideoPlay();
     handleAudioPlay().catch(console.error);
-    drawCanvas();
+    drawCanvasFitFont();
   };
 
   const handleStop = () => {
