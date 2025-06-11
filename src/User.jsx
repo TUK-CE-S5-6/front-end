@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 
-import Header from './components/Header';
 
 import './App.css';
 import './Layout.css';

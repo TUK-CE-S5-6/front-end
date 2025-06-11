@@ -3,21 +3,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Home from './pages/App2';
-import SignUp from './pages/SignUp';
-import Header from './components/Header';
-import Upload from './pages/Upload';
-import Stt from './pages/SttVideo';
-import AudioGenerator from './pages/audio';
+
 import './App.css';
 import './Layout.css';
-import Track from './components/Track/Track';
-import Viewer from './components/Viewer/Viewer2';
-import FileDetails from './pages/file-details';
-import FileList from './pages/FileList';
 import UserFileManage from './pages/UserFilemanage';
 import ProjectInfor from './pages/ProjectInfor'; // 수정된 상세 페이지 컴포넌트
-import UserAudio from './pages/UserAudio';
-import UserVideo from './pages/UserVideo';
+
 import User from './User';
 import TTS from './pages/TTS';
 import TTS2 from './pages/TTS2';
@@ -108,15 +99,8 @@ function App() {
 
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/upload" element={<Upload />} />
-          <Route path="/stt" element={<Stt />} />
-          <Route path="/audio" element={<AudioGenerator />} />
-          <Route path="/file-details" element={<FileDetails />} />
-          <Route path="/filelist" element={<FileList />} />
-          <Route path="/userfilemanage" element={<UserFileManage />} />
-          <Route path="/useraudio" element={<UserAudio />} />
-          <Route path="/uservideo" element={<UserVideo />} />
+          
+
 
           {/* ↓ 중첩 라우트 */}
           <Route path="/editor/:projectId" element={<User />}>
