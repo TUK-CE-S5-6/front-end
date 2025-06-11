@@ -4,9 +4,11 @@ npm run dev 실행
 
 http://localhost:3000/ 에 실행
 
-최신화
+
+내용    
 
 
+                        
 src
     components
         Track: 하단 
