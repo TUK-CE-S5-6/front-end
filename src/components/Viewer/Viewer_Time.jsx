@@ -1,325 +1,328 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import store from '../../store';
 
-const baseUrl = "http://175.116.3.178:8000/";
+// 자막 분할 유틸 (기존 코드 그대로 복원)
+function splitSubtitleBySentenceWeight(text, startTime, duration) {
+    const sentences = text.split(/(?<=[.?!])\s+/);
+    const perSentence = duration / sentences.length;
+    return sentences.map((s, i) => ({
+        start: startTime + perSentence * i,
+        end: startTime + perSentence * (i + 1),
+        lines: [s],
+    }));
+}
+
+const baseUrl = 'http://localhost:8000/';
 
 const MergeAndPreviewPage = () => {
-    const videoTracks = useSelector(state => state.videoTracks);
-    const audioTracks = useSelector(state => state.audioTracks);
+    const videoTracks = useSelector((state) => state.videoTracks);
+    const audioTracks = useSelector((state) => state.audioTracks);
 
     const canvasRef = useRef(null);
     const videoElementsRef = useRef({});
     const audioElementsRef = useRef({});
     const animationFrameRef = useRef(null);
-    const [videoTimeouts, setVideoTimeouts] = useState([]);
-    const [audioTimeouts, setAudioTimeouts] = useState([]);
+    const playStartRef = useRef(0);
+    const timeoutsRef = useRef([]);
 
-    // 자막 텍스트 줄바꿈 해주는 함수
-    const wrapText = (ctx, text, maxWidth) => {
-        const words = text.split(' ');
-        const lines = [];
-        let line = '';
+    const [globalTime, setGlobalTime] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
 
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const testWidth = ctx.measureText(testLine).width;
-            if (testWidth > maxWidth && line !== '') {
-                lines.push(line.trim());
-                line = words[n] + ' ';
-            } else {
-                line = testLine;
-            }
-        }
-        lines.push(line.trim());
-        return lines;
-    };
-
-
-    const splitSubtitleByTime = (
-        ctx,
-        text,
-        maxWidth,
-        startTime,
-        duration,
-        maxLinesPerPart = 2
-    ) => {
-        const fontSize = 28;
-        ctx.font = `${fontSize}px sans-serif`;
-
-        // 전체 자막 줄 단위로 나누기
-        const lines = wrapText(ctx, text, maxWidth);
-
-        // 전체 파트 개수 계산
-        const totalParts = Math.ceil(lines.length / maxLinesPerPart);
-
-        // 각 파트가 점유할 시간 (초 단위)
-        const partDuration = duration / totalParts;
-
-        const parts = [];
-
-        for (let i = 0; i < totalParts; i++) {
-            const partLines = lines.slice(
-                i * maxLinesPerPart,
-                (i + 1) * maxLinesPerPart
-            );
-
-            const partStart = startTime + i * partDuration;
-            const partEnd = partStart + partDuration;
-
-            parts.push({
-                start: partStart,
-                end: partEnd,
-                lines: partLines,
-            });
-        }
-
-        return {
-            fontSize,
-            parts,
-        };
-    };
-    const splitSubtitleBySentenceWeight = (text, startTime, duration) => {
-        const sentences = text
-            .match(/[^.!?]+[.!?]?/g)
-            ?.map(s => s.trim())
-            .filter(s => s.length > 0) || [];
-
-        const wordCounts = sentences.map(s => s.split(/\s+/).length);
-        const totalWords = wordCounts.reduce((a, b) => a + b, 0);
-        if (totalWords === 0) return [];
-
-        const parts = [];
-        let currentStart = startTime;
-
-        for (let i = 0; i < sentences.length; i++) {
-            const wordRatio = wordCounts[i] / totalWords;
-            const partDuration = duration * wordRatio;
-            parts.push({
-                start: currentStart,
-                end: currentStart + partDuration,
-                text: sentences[i],
-            });
-            currentStart += partDuration;
-        }
-
-        return parts;
-    };
-
-
-
-    const drawCanvasSplitBySentenceWeight = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const playingTracks = [];
-
-        videoTracks.forEach(group => {
-            group.tracks.forEach(track => {
-                const videoElem = videoElementsRef.current[track.id];
-                if (videoElem && videoElem.readyState >= 2 && !videoElem.paused) {
-                    const elapsed = videoElem.currentTime;
-                    if (elapsed >= (track.startTime || 0) &&
-                        elapsed < (track.startTime || 0) + (track.duration || 0)) {
-                        playingTracks.push({ track, videoElem });
-                    }
-                }
+    const [localSeekTime, setLocalSeekTime] = useState(globalTime);
+    const isDraggingRef = useRef(false);
+    // 전체 타임라인 길이 계산
+    const totalDuration = useMemo(() => {
+        let max = 0;
+        [...videoTracks, ...audioTracks].forEach((group) => {
+            group.tracks.forEach((track) => {
+                const end = (track.startTime || 0) + (track.duration || 0);
+                if (end > max) max = end;
             });
         });
-
-        if (playingTracks.length > 0) {
-            playingTracks.sort((a, b) => {
-                const toNum = id => parseInt((id + '').match(/\d+$/)?.[0] ?? '0', 10);
-                return toNum(b.track.id) - toNum(a.track.id);
-            });
-
-            playingTracks.forEach(({ videoElem }) => {
-                ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-            });
-
-            const currentTime = playingTracks[playingTracks.length - 1].videoElem.currentTime;
-
-            audioTracks.forEach(group => {
-                group.tracks.forEach(track => {
-                    const textStart = track.startTime || 0;
-                    const textEnd = textStart + (track.duration || 0);
-
-                    if (
-                        currentTime >= textStart &&
-                        currentTime <= textEnd &&
-                        track.translatedText
-                    ) {
-                        const maxTextWidth = canvas.width - 40;
-                        const fontSize = 28;
-                        const lineHeight = 36;
-                        const x = canvas.width / 2;
-
-                        const parts = splitSubtitleBySentenceWeight(
-                            track.translatedText,
-                            textStart,
-                            track.duration
-                        );
-
-                        parts.forEach(part => {
-                            if (currentTime >= part.start && currentTime < part.end) {
-                                ctx.font = `${fontSize}px sans-serif`;
-                                ctx.fillStyle = 'white';
-                                ctx.strokeStyle = 'black';
-                                ctx.lineWidth = 4;
-                                ctx.textAlign = 'center';
-                                ctx.shadowColor = 'black';
-                                ctx.shadowBlur = 2;
-
-                                const lines = wrapText(ctx, part.text, maxTextWidth);
-                                const baseY = canvas.height - lines.length * lineHeight - 20;
-
-                                lines.forEach((line, i) => {
-                                    const y = baseY + i * lineHeight;
-                                    ctx.strokeText(line, x, y);
-                                    ctx.fillText(line, x, y);
-                                });
-                            }
-                        });
-                    }
-                });
-            });
-        }
-
-        animationFrameRef.current = requestAnimationFrame(drawCanvasSplitBySentenceWeight);
-    };
-
-
-
-    const handleVideoPlay = () => {
-        const timeouts = [];
-        videoTracks.forEach(group => {
-            group.tracks.forEach(track => {
-                const videoUrl = track.url.startsWith("http") ? track.url : baseUrl + track.url;
-                const existing = videoElementsRef.current[track.id];
-
-                if (!existing || existing.src !== videoUrl) {
-                    const videoElem = document.createElement('video');
-                    videoElem.src = videoUrl;
-                    videoElem.volume = group.volume / 100;
-                    videoElem.currentTime = track.startTime || 0;
-                    videoElementsRef.current[track.id] = videoElem;
-                } else {
-                    existing.volume = group.volume / 100;
-                    existing.currentTime = track.startTime || 0;
-                }
-
-                const timeoutId = setTimeout(() => {
-                    const videoElem = videoElementsRef.current[track.id];
-                    if (videoElem) videoElem.play();
-                }, (track.startTime || 0) * 1000);
-                timeouts.push(timeoutId);
-            });
-        });
-        setVideoTimeouts(timeouts);
-    };
-
-    const handleAudioPlay = async () => {
-        const timeouts = [];
-        for (const group of audioTracks) {
-            for (const track of group.tracks) {
-                const audioUrl = track.url.startsWith("http") ? track.url : baseUrl + track.url;
-                const existing = audioElementsRef.current[track.id];
-
-                if (!existing || existing.src !== audioUrl) {
-                    const audioElem = document.createElement('audio');
-                    audioElem.src = audioUrl;
-                    audioElem.volume = group.volume / 100;
-                    audioElem.currentTime = 0;
-
-                    if (!audioElem.canPlayType("audio/mpeg") && audioUrl.endsWith(".mp3")) {
-                        try {
-                            const response = await fetch(audioUrl);
-                            if (!response.ok) throw new Error("오디오 불러오기 실패");
-                            const blob = await response.blob();
-                            audioElem.src = URL.createObjectURL(blob);
-                        } catch (error) {
-                            console.error("오디오 에러:", error);
-                            continue;
-                        }
-                    }
-                    audioElementsRef.current[track.id] = audioElem;
-                } else {
-                    existing.volume = group.volume / 100;
-                    existing.currentTime = 0;
-                }
-
-                const timeoutId = setTimeout(() => {
-                    const audioElem = audioElementsRef.current[track.id];
-                    if (audioElem) audioElem.play().catch(err => console.error("Audio play error:", err));
-                }, (track.startTime || 0) * 1000);
-                timeouts.push(timeoutId);
-            }
-        }
-        setAudioTimeouts(timeouts);
-    };
-
-    const handlePlay = () => {
-        handleStop();
-        handleVideoPlay();
-        handleAudioPlay().catch(console.error);
-        drawCanvasSplitBySentenceWeight();
-    };
-
-    const handleStop = () => {
-        videoTimeouts.forEach(clearTimeout);
-        audioTimeouts.forEach(clearTimeout);
-        setVideoTimeouts([]);
-        setAudioTimeouts([]);
-
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-
-        Object.values(videoElementsRef.current).forEach(v => {
-            v.pause(); v.currentTime = 0;
-        });
-        Object.values(audioElementsRef.current).forEach(a => {
-            a.pause(); a.currentTime = 0;
-        });
-
-        const ctx = canvasRef.current?.getContext('2d');
-        ctx?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    };
-
-    useEffect(() => {
-        handleStop();
+        return max;
     }, [videoTracks, audioTracks]);
 
-    // 📥 서버로 merge 요청
+    useEffect(() => {
+        // 비디오 요소 미리 생성
+        videoTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const url = track.url.startsWith('http')
+                    ? track.url
+                    : baseUrl + track.url;
+                if (!videoElementsRef.current[track.id]) {
+                    const v = document.createElement('video');
+                    v.crossOrigin = 'anonymous';
+                    v.preload = 'auto';
+                    v.src = url;
+                    v.volume = group.volume / 100;
+                    videoElementsRef.current[track.id] = v;
+                }
+            });
+        });
+        // 오디오 요소 생성
+        audioTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const url = track.url.startsWith('http')
+                    ? track.url
+                    : baseUrl + track.url;
+                if (!audioElementsRef.current[track.id]) {
+                    const a = document.createElement('audio');
+                    a.preload = 'auto';
+                    a.src = url;
+                    a.volume = group.volume / 100;
+                    audioElementsRef.current[track.id] = a;
+                }
+            });
+        });
+        return () => {
+            // clean up
+            timeoutsRef.current.forEach(clearTimeout);
+            cancelAnimationFrame(animationFrameRef.current);
+        };
+    }, [videoTracks, audioTracks]);
+
+    // 슬라이더 이동 (Seek)
+    const handleSeek = (e) => {
+        const newTime = parseFloat(e.target.value);
+        setGlobalTime(newTime);
+        // 중간 재생 중지 및 타임아웃 초기화
+        timeoutsRef.current.forEach(clearTimeout);
+        Object.values(videoElementsRef.current).forEach((v) => v.pause());
+        Object.values(audioElementsRef.current).forEach((a) => a.pause());
+        // 각 요소 currentTime 설정
+        videoTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const v = videoElementsRef.current[track.id];
+                if (v.readyState)
+                    v.currentTime = Math.max(newTime - (track.startTime || 0), 0);
+            });
+        });
+        audioTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const a = audioElementsRef.current[track.id];
+                if (a.readyState)
+                    a.currentTime = Math.max(newTime - (track.startTime || 0), 0);
+            });
+        });
+        if (isPlaying) {
+            handleStop();
+            handlePlay();
+        } else {
+            drawCanvasOnce(newTime);
+        }
+    };
+    const handleSeekDrag = (e) => {
+        const newTime = parseFloat(e.target.value);
+        setLocalSeekTime(newTime);
+        setGlobalTime(newTime); // canvas 업데이트
+        drawCanvasOnce(newTime); // 정지 상태일 때 미리보기
+    };
+    const handleSeekCommit = () => {
+        store.dispatch({ type: 'SET_TIME', payload: localSeekTime });
+        if (isPlaying) {
+            handleStop();
+            handlePlay();
+        }
+    };
+    // 일시정지 상태 단일 프레임 그리기
+    const drawCanvasOnce = (timeSec) => {
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
+        // 비디오 레이어
+        videoTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const v = videoElementsRef.current[track.id];
+                if (v.readyState >= 2) ctx.drawImage(v, 0, 0, c.width, c.height);
+            });
+        });
+        // 자막 레이어
+        audioTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const start = track.startTime || 0;
+                const dur = track.duration || 0;
+                if (
+                    track.translatedText &&
+                    timeSec >= start &&
+                    timeSec <= start + dur
+                ) {
+                    const parts = splitSubtitleBySentenceWeight(
+                        track.translatedText,
+                        start,
+                        dur
+                    );
+                    parts.forEach(({ start, end, lines }) => {
+                        if (timeSec >= start && timeSec <= end) {
+                            const x = c.width / 2;
+                            const fontSize = 28;
+                            const lineHeight = 36;
+                            const baseY = c.height - lines.length * lineHeight - 20;
+                            ctx.font = `${fontSize}px sans-serif`;
+                            ctx.textAlign = 'center';
+                            ctx.lineWidth = 4;
+                            ctx.strokeStyle = 'black';
+                            ctx.fillStyle = 'white';
+                            lines.forEach((line, i) => {
+                                const y = baseY + i * lineHeight;
+                                ctx.strokeText(line, x, y);
+                                ctx.fillText(line, x, y);
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    };
+
+    // 애니메이션 루프 그리기
+    const drawCanvas = () => {
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
+        const now = Date.now();
+        const currentTime = Math.min(
+            (now - playStartRef.current) / 1000,
+            totalDuration
+        );
+        setGlobalTime(currentTime);
+        // 비디오
+        videoTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const start = track.startTime || 0;
+                const dur = track.duration || 0;
+                const v = videoElementsRef.current[track.id];
+                if (
+                    currentTime >= start &&
+                    currentTime <= start + dur &&
+                    v.readyState >= 2
+                ) {
+                    ctx.drawImage(v, 0, 0, c.width, c.height);
+                }
+            });
+        });
+        // 자막
+        audioTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const start = track.startTime || 0;
+                const dur = track.duration || 0;
+                if (
+                    track.translatedText &&
+                    currentTime >= start &&
+                    currentTime <= start + dur
+                ) {
+                    const parts = splitSubtitleBySentenceWeight(
+                        track.translatedText,
+                        start,
+                        dur
+                    );
+                    parts.forEach(({ start, end, lines }) => {
+                        if (currentTime >= start && currentTime <= end) {
+                            const x = c.width / 2;
+                            const fontSize = 28;
+                            const lineHeight = 36;
+                            const baseY = c.height - lines.length * lineHeight - 20;
+                            ctx.font = `${fontSize}px sans-serif`;
+                            ctx.textAlign = 'center';
+                            ctx.lineWidth = 4;
+                            ctx.strokeStyle = 'black';
+                            ctx.fillStyle = 'white';
+                            lines.forEach((line, i) => {
+                                const y = baseY + i * lineHeight;
+                                ctx.strokeText(line, x, y);
+                                ctx.fillText(line, x, y);
+                            });
+                        }
+                    });
+                }
+            });
+        });
+        animationFrameRef.current = requestAnimationFrame(drawCanvas);
+    };
+
+    // 재생
+    const handlePlay = () => {
+        if (isPlaying) return;
+
+        store.dispatch({ type: 'SET_PLAYING', payload: 1 });             // ⬅️ 재생 중으로 표시
+
+        timeoutsRef.current.forEach(clearTimeout);
+        timeoutsRef.current = [];
+        setIsPlaying(true);
+        playStartRef.current = Date.now() - globalTime * 1000;
+        [...videoTracks, ...audioTracks].forEach((group) => {
+            group.tracks.forEach((track) => {
+                const elem =
+                    videoElementsRef.current[track.id] ||
+                    audioElementsRef.current[track.id];
+                const start = track.startTime || 0;
+                const dur = track.duration || 0;
+                const offset = globalTime - start;
+                if (!elem) return;
+                if (offset < 0) {
+                    const t1 = setTimeout(() => {
+                        elem.currentTime = 0;
+                        elem.play();
+                    }, (start - globalTime) * 1000);
+                    const t2 = setTimeout(() => {
+                        elem.pause();
+                    }, (start - globalTime + dur) * 1000);
+                    timeoutsRef.current.push(t1, t2);
+                } else if (offset <= dur) {
+                    elem.currentTime = offset;
+                    elem.play();
+                    const t = setTimeout(() => {
+                        elem.pause();
+                    }, (dur - offset) * 1000);
+                    timeoutsRef.current.push(t);
+                }
+            });
+        });
+        animationFrameRef.current = requestAnimationFrame(drawCanvas);
+    };
+
+    // 정지
+    const handleStop = () => {
+        if (!isPlaying) return;
+        store.dispatch({ type: 'SET_TIME', payload: globalTime });      // ⬅️ 현재 시각 저장
+        store.dispatch({ type: 'SET_PLAYING', payload: 0 });             // ⬅️ 정지 상태 저장
+        setIsPlaying(false);
+        cancelAnimationFrame(animationFrameRef.current);
+        timeoutsRef.current.forEach(clearTimeout);
+        timeoutsRef.current = [];
+        Object.values(videoElementsRef.current).forEach((v) => v.pause());
+        Object.values(audioElementsRef.current).forEach((a) => a.pause());
+    };
+
+    // 합성 및 다운로드
     const handleMergeClick = async () => {
         try {
-            const videoTracksPayload = videoTracks.map(group => ({
-                name: group.name || '',
-                volume: group.volume ?? 100,
-                tracks: group.tracks.map(track => ({
-                    url: track.url.replace(/\\/g, '/'),
-                    startTime: track.startTime || 0
-                }))
+            const vtPayload = videoTracks.map((g) => ({
+                name: g.name || '',
+                tracks: g.tracks.map((t) => ({
+                    url: t.url,
+                    startTime: t.startTime,
+                    duration: t.duration,
+                })),
             }));
-
-            const audioTracksPayload = audioTracks.map(group => ({
-                volume: group.volume ?? 100,
-                tracks: group.tracks.map(track => ({
-                    url: track.url,
-                    startTime: track.startTime || 0
-                }))
+            const atPayload = audioTracks.map((g) => ({
+                name: g.name || '',
+                tracks: g.tracks.map((t) => ({
+                    url: t.url,
+                    startTime: t.startTime,
+                    duration: t.duration,
+                })),
             }));
-
-            const payload = {
-                videoTracks: videoTracksPayload,
-                audioTracks: audioTracksPayload
-            };
-
             const res = await fetch(`${baseUrl}merge-media`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    videoTracks: vtPayload,
+                    audioTracks: atPayload,
+                }),
             });
-
             if (!res.ok) throw new Error('서버 요청 실패');
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
@@ -327,26 +330,53 @@ const MergeAndPreviewPage = () => {
             a.href = url;
             a.download = 'merged.mp4';
             a.click();
-            URL.revokeObjectURL(url);
         } catch (err) {
-            console.error('합성 실패:', err);
-            alert('비디오 합성 중 오류 발생');
+            console.error(err);
         }
     };
 
     return (
-        <div style={{ padding: '20px' }}>
-            <div style={{ marginBottom: 10 }}>
-                <button onClick={handlePlay}>▶️ 재생</button>
-                <button onClick={handleStop}>⏹ 정지</button>
-                <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
-            </div>
+        <div style={{ width: '640px', margin: '0 auto' }}>
             <canvas
                 ref={canvasRef}
                 width={640}
                 height={480}
-                style={{ border: '1px solid #ccc' }}
+                style={{ border: '1px solid #ccc', display: 'block' }}
             />
+            <div className="controls" style={{ width: '100%', marginTop: '0.5rem' }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '1rem',
+                        marginBottom: '0.5rem',
+                    }}
+                >
+                    <button onClick={handlePlay}>▶️ 재생</button>
+                    <button onClick={handleStop}>⏹ 정지</button>
+                    <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
+                </div>
+                <input
+                    type="range"
+                    min={0}
+                    max={totalDuration}
+                    step="0.01"
+                    value={globalTime}
+                    onChange={handleSeekDrag}
+                    onMouseUp={handleSeekCommit}
+                    onTouchEnd={handleSeekCommit}
+                    style={{ width: '100%' }}
+                />
+                <div
+                    style={{
+                        textAlign: 'right',
+                        fontSize: '0.8rem',
+                        marginTop: '0.25rem',
+                    }}
+                >
+                    {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+                </div>
+            </div>
         </div>
     );
 };

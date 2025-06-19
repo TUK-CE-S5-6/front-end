@@ -10,8 +10,7 @@ import Viewer from './components/Viewer/Viewer_Time';
 
 function User() {
   // FormData 상태를 App.js에서 관리
-  const [formData, setFormData] = useState(new FormData());
-  const [activeView, setActiveView] = useState('project'); // 기본적으로 Project Info 뷰를 활성화
+
   // URL 파라미터에서 projectId를 가져옵니다
   const { projectId } = useParams();
   // 상단 영역 및 하단 영역 크기 조절 관련 상태들 (splitter 관련 코드 포함)
@@ -24,8 +23,6 @@ function User() {
   const isDraggingVertical = useRef(false);
   const isDraggingHorizontal = useRef(false);
 
-  // 새로 추가: 슬라이더(전역 재생 시간) 상태
-  const [globalTime, setGlobalTime] = useState(0);
 
   useEffect(() => {
     const handleVerticalMouseMove = (e) => {

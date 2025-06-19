@@ -14,6 +14,8 @@ const initialState = {
   nextVideoTrackIndex: 1,
   globalTime: 0,
   timelineDuration: 23, // 초기에는 트랙이 없으므로 0+60 = 60
+  isPlaying: 0,
+  time: 0,
 };
 
 // helper 함수: 모든 그룹에서 (startTime + duration)의 최대값을 구하고 +60을 더함
@@ -39,6 +41,18 @@ const computeTimelineDuration = (state) => {
 const reducer = (state = initialState, action) => {
   let newState;
   switch (action.type) {
+    case 'SET_PLAYING':
+      newState = {
+        ...state,
+        isPlaying: action.payload, // 1 또는 0
+      };
+      break;
+    case 'SET_TIME':
+      newState = {
+        ...state,
+        time: action.payload, // 숫자 값 (예: 5.2, 10 등)
+      };
+      break;
 
     /* ============================
        AUDIO RELATED CODE
@@ -307,12 +321,12 @@ const reducer = (state = initialState, action) => {
           tracks: group.tracks.map(track =>
             track.id === action.payload.id
               ? {
-                  ...track,
-                  duration: action.payload.duration,
-                  url: action.payload.url,
-                  translatedText: action.payload.translatedText,
-                  originalText: action.payload.originalText
-                }
+                ...track,
+                duration: action.payload.duration,
+                url: action.payload.url,
+                translatedText: action.payload.translatedText,
+                originalText: action.payload.originalText
+              }
               : track
           )
         }))
