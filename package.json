@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "main/main.cjs",  
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.11.6",
@@ -28,6 +31,9 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.0",
+    "electron": "^36.5.0",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.19.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.0.0",
@@ -35,6 +41,24 @@
     "globals": "^15.14.0",
     "previewjs": "^1.0.6",
     "vite": "^6.1.0",
-    "vite-plugin-cross-origin-isolation": "^0.1.6"
+    "vite-plugin-cross-origin-isolation": "^0.1.6",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.yourname.videoeditor",
+    "productName": "VideoEditor",
+    "files": [
+      "dist",
+      "main"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
