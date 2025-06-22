@@ -89,7 +89,9 @@ function User() {
         className="container"
         ref={containerRef}
         style={{
-          gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`
+          gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`,
+          backgroundColor: '#2b2d31', // 전체 배경
+          color: '#f2f3f5',            // 전체 텍스트 색상
         }}
       >
         {/* 상단 영역: 좌측은 여러 페이지, 우측은 VideoViewer */}
@@ -102,16 +104,94 @@ function User() {
             className="topLeft"
             style={{
               width: `${topLeftWidth}px`,
-              backgroundColor: 'lightblue'
+              display: 'flex', // ✅ 좌우 나누기 위해 flex
+              backgroundColor: '#313338',
+              color: '#f2f3f5'
             }}
           >
-            <nav style={{ padding: '8px', borderBottom: '1px solid #ccc', display: 'flex', gap: '4px' }}>
-              <NavLink to="" end style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>Info</NavLink>
-              <NavLink to="files" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>Files</NavLink>
-              <NavLink to="tts2" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>tts</NavLink>
-              <NavLink to="script" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>script</NavLink> 
-              <NavLink to="TTSModel" style={({ isActive }) => ({ fontWeight: isActive ? 'bold' : 'normal' })}>TTSModel</NavLink> 
+            <nav
+              style={{
+                padding: '8px',
+                borderRight: '1px solid #ccc',
+                display: 'flex',
+                flexDirection: 'column',  // 세로 정렬
+                gap: '8px',
+                minWidth: '120px',
+                backgroundColor: '#313338',
+                height: '100%',
+              }}
+            >
+              <NavLink
+                to=""
+                end
+                style={({ isActive }) => ({
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? '#5865f2' : '#f2f3f5',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? '#404249' : 'transparent'
+                })}
+              >
+                Info
+              </NavLink>
+
+              <NavLink
+                to="files"
+                end
+                style={({ isActive }) => ({
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? '#5865f2' : '#f2f3f5',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? '#404249' : 'transparent'
+                })}
+              >
+                Files
+              </NavLink>
+
+              <NavLink
+                to="tts2"
+                end
+                style={({ isActive }) => ({
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? '#5865f2' : '#f2f3f5',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? '#404249' : 'transparent'
+                })}
+              >
+                tts
+              </NavLink>
+
+              <NavLink
+                to="script"
+                end
+                style={({ isActive }) => ({
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? '#5865f2' : '#f2f3f5',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? '#404249' : 'transparent'
+                })}
+              >
+                script
+              </NavLink>
+
+              <NavLink
+                to="TTSModel"
+                end
+                style={({ isActive }) => ({
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  color: isActive ? '#5865f2' : '#f2f3f5',
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  backgroundColor: isActive ? '#404249' : 'transparent'
+                })}
+              >
+                TTSModel
+              </NavLink>
             </nav>
+
 
             {/* 중첩 라우트의 컴포넌트를 여기에 렌더링 */}
             <div style={{ flex: 1, overflow: 'auto' }}>
@@ -126,11 +206,15 @@ function User() {
             onMouseDown={handleVerticalSplitterMouseDown}
             style={{
               width: `${verticalSplitterWidth}px`,
-              backgroundColor: '#ccc',
+              backgroundColor: '#404249', // splitter 색상
               cursor: 'col-resize'
             }}
           ></div>
-          <div className="topRight" style={{ flexGrow: 1, backgroundColor: 'lightcoral' }}>
+          <div className="topRight" style={{
+            flexGrow: 1,
+            backgroundColor: '#2b2d31', // Viewer 배경
+            color: '#f2f3f5'
+          }}>
             {/* 비디오 뷰어 */}
             <Viewer />
           </div>
@@ -141,8 +225,10 @@ function User() {
           onMouseDown={handleHorizontalSplitterMouseDown}
           style={{
             gridColumn: '1 / span 2',
-            backgroundColor: '#ccc',
-            cursor: 'row-resize'
+            backgroundColor: '#404249', // splitter 색상
+            cursor: 'row-resize',
+            padding: 0,
+            margin: 0,
           }}
         ></div>
         {/* 하단 영역: Track 컴포넌트 */}

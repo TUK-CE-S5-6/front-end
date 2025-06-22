@@ -334,7 +334,17 @@ const MergeAndPreviewPage = () => {
             console.error(err);
         }
     };
+    useEffect(() => {
+        if (isPlaying) return;
 
+        const interval = setInterval(() => {
+            const state = store.getState();
+            const currentReduxTime = state.time;
+            setGlobalTime(currentReduxTime);
+        }, 100); // 100ms 간격
+
+        return () => clearInterval(interval); // cleanup
+    }, [isPlaying]);
     return (
         <div style={{ width: '640px', margin: '0 auto' }}>
             <canvas

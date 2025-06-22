@@ -3,17 +3,14 @@
   grid-template-columns: 1fr 1fr; /* 상단을 두 열로 분할 */
   /* grid-template-rows는 App.jsx에서 인라인 스타일로 설정 */
   height: 100vh;
-  gap: 10px;
 }
 
 .topLeft {
-  background-color: lightblue;
   overflow-y: auto; /* 세로 스크롤바 활성화 */
   /* 필요하다면 max-height 또는 height도 지정 */
 }
 
 .topRight {
-  background-color: lightcoral;
 }
 
 .bottom {

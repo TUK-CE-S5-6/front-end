@@ -376,18 +376,7 @@ const AudioTracks = () => {
       )
       }
 
-      {/* 맨 아래 디버깅용 Store State */}
-      <div style={{
-        marginTop: '40px',
-        border: '1px solid #000',
-        backgroundColor: '#f9f9f9',
-        padding: '10px'
-      }}>
-        <h3>Store State</h3>
-        <pre style={{ fontSize: '12px' }}>
-          {JSON.stringify(storeState, null, 2)}
-        </pre>
-      </div>
+      
     </div >
   );
 };

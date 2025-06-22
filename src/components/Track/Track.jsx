@@ -14,6 +14,11 @@ const formatTime = (seconds) => {
 };
 
 const Track = () => {
+  const trackOffset = 200; // 눈금 및 빨간선 시작 위치
+  const dragRef = useRef(null);
+
+  const [zoom, setZoom] = useState(100); // 🔍 확대/축소 비율 상태 (1초당 px 수)
+
   const dispatch = useDispatch();
   const audioTracks = useSelector((state) => state.audioTracks);
   const videoTracks = useSelector((state) => state.videoTracks);
@@ -46,10 +51,67 @@ const Track = () => {
     return () => cancelAnimationFrame(raf);
   }, [isPlaying, reduxTime]);
 
+  const localTimeRef = useRef(localTime);  // 추가
+  const lastDispatchTimeRef = useRef(0);
+  const DISPATCH_INTERVAL = 200;
+
+  const handleDragStart = (e) => {
+    e.preventDefault();
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const startMouseX = e.clientX - containerRect.left;
+    const startLocalTime = localTime;
+
+    // 1️⃣ 시작 즉시 dispatch
+    dispatch({ type: 'SET_TIME', payload: startLocalTime });
+    lastDispatchTimeRef.current = Date.now();
+
+    const onMouseMove = (moveEvent) => {
+      const currentMouseX = moveEvent.clientX - containerRect.left;
+      const deltaX = currentMouseX - startMouseX;
+      const newTime = startLocalTime + deltaX / 100;
+
+      if (newTime >= 0) {
+        setLocalTime(newTime);
+        localTimeRef.current = newTime; // ⭐ 항상 최신값 추적
+
+        const now = Date.now();
+        if (now - lastDispatchTimeRef.current > DISPATCH_INTERVAL) {
+          dispatch({ type: 'SET_TIME', payload: newTime });
+          lastDispatchTimeRef.current = now;
+        }
+      }
+    };
+
+    const onMouseUp = () => {
+      // 3️⃣ 끝날 때는 최신 값 사용
+      dispatch({ type: 'SET_TIME', payload: localTimeRef.current });
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+
   const markerLeft = localTime * 100; // 1초당 100px 기준
   const timelineWidth = timelineDuration * 100;
   const numTicks = Math.ceil(timelineDuration * 10) + 1;
+  // 🔼 확대 버튼 (+)
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev + 10, 100)); // 최대 500%
+  };
 
+  // 🔽 축소 버튼 (-)
+  const handleZoomOut = () => {
+    setZoom((prev) => Math.max(prev - 10, 0)); // 최소 10%
+  };
+
+  // 🎚 슬라이더 조절
+  const handleSliderChange = (e) => {
+    setZoom(Number(e.target.value));
+  };
   const ticks = [];
   for (let i = 0; i < numTicks; i++) {
     const leftPos = i * 10;
@@ -115,6 +177,8 @@ const Track = () => {
     dispatch({ type: 'ADD_VIDEO_GROUP', payload: newGroup });
   };
 
+  // ... 생략된 import 및 상태
+
   return (
     <div
       ref={containerRef}
@@ -124,12 +188,42 @@ const Track = () => {
         width: '3000px',
         height: '500px',
         overflow: 'auto',
-        border: '1px solid #ccc',
-        backgroundColor: 'white',
+        backgroundColor: '#2b2d31', // 전체 어두운 배경
+        color: '#f2f3f5',           // 텍스트 밝게
       }}
     >
-      <button onClick={addAudioTrack}>Add Audio Track {nextAudioIndex}</button>
-      <button onClick={addVideoTrack}>Add Video Track {nextVideoIndex}</button>
+      {/* 🎛 상단 컨트롤 바 */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '10px 20px',
+          backgroundColor: '#313338',  // 컨트롤 바 배경
+          borderBottom: '1px solid #404249',
+        }}
+      >
+        <button style={{ background: '#5865f2', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }} onClick={addAudioTrack}>
+          Add Audio Track {nextAudioIndex}
+        </button>
+        <button style={{ background: '#5865f2', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }} onClick={addVideoTrack}>
+          Add Video Track {nextVideoIndex}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button style={{ background: '#404249', color: '#f2f3f5' }} onClick={handleZoomIn}>＋</button>
+          <button style={{ background: '#404249', color: '#f2f3f5' }} onClick={handleZoomOut}>－</button>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={zoom}
+            onChange={handleSliderChange}
+            style={{ width: '150px', background: '#5865f2' }}
+          />
+          <span>{zoom}%</span>
+        </div>
+      </div>
 
       {/* Timeline 눈금 */}
       <div
@@ -146,12 +240,12 @@ const Track = () => {
       <VideoTrack />
       <AudioTrack />
 
-      {/* 🔴 빨간 선 */}
+      {/* 🔴 재생 바 */}
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          left: markerLeft+200,
+          top: '90px',
+          left: markerLeft + trackOffset,
           width: '2px',
           height: '100%',
           background: 'red',
@@ -159,8 +253,27 @@ const Track = () => {
           pointerEvents: 'none'
         }}
       />
+
+      {/* 🔴 재생 바 위 원 */}
+      <div
+        ref={dragRef}
+        onMouseDown={handleDragStart}
+        style={{
+          position: 'absolute',
+          top: '90px',
+          left: markerLeft + trackOffset - 4,
+          width: '10px',
+          height: '10px',
+          borderRadius: '50%',
+          background: 'red',
+          zIndex: 10000,
+          cursor: 'pointer',
+          pointerEvents: 'auto',
+        }}
+      />
     </div>
   );
+
 };
 
 export default Track;
