@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AudioTrack from './AudioTrack';
 import VideoTrack from './VideoTrack';
-
+import './Track.css'; // 스타일 파일을 import
 const formatTime = (seconds) => {
   const sec = Math.floor(seconds);
   const hrs = Math.floor(sec / 3600);
@@ -182,24 +182,27 @@ const Track = () => {
   return (
     <div
       ref={containerRef}
-      className="track-container"
+      className="track-container hide-scrollbar"  // ← ✅ 클래스 추가
       style={{
         position: 'relative',
         width: '3000px',
         height: '500px',
-        overflow: 'auto',
-        backgroundColor: '#2b2d31', // 전체 어두운 배경
-        color: '#f2f3f5',           // 텍스트 밝게
+        overflow: 'auto',               // ✅ 스크롤은 작동하도록 유지
+        backgroundColor: '#2b2d31',
+        color: '#f2f3f5',
       }}
     >
       {/* 🎛 상단 컨트롤 바 */}
       <div
         style={{
+          position: 'sticky',      // ✅ 상단에 고정
+          top: 0,                  // ✅ 화면 최상단
+          zIndex: 10,              // ✅ 겹침 우선순위 설정
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           padding: '10px 20px',
-          backgroundColor: '#313338',  // 컨트롤 바 배경
+          backgroundColor: '#313338',
           borderBottom: '1px solid #404249',
         }}
       >

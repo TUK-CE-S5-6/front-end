@@ -1,0 +1,176 @@
+/* 스크롤바 숨기기용 */
+.hide-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE, Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome, Safari */
+}
+/* App.css 또는 Layout.css 에 추가 */
+.custom-scrollbar {
+  scrollbar-width: thin;              /* Firefox */
+  scrollbar-color: #5865f2 transparent;
+}
+
+/* Chrome, Edge, Safari 전용 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;           /* 트랙 배경 없음 */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #5865f2;         /* thumb 색상 (디스코드 계열) */
+  border-radius: 10px;               /* 둥근 모양 */
+  border: 2px solid transparent;     /* 트랙과 간격 확보 */
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;                     /* ↑↓ 화살표 제거 */
+}
+.file-list-scroll {
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+
+  /* 선택적: 스크롤바 커스터마이징 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.file-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-list-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+}
+
+.file-list-scroll::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+/* Webkit (Chrome, Edge, Safari) */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Firefox */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE, Edge */
+}
+/* 공통 스크롤바 숨기기 스타일 */
+.hide-scrollbar {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE 10+ */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;               /* Chrome, Safari, Opera */
+}
+/* UserLayout.css */
+
+/* 전체 container를 세로 3등분 (Top + Splitter + Bottom) */
+.container {
+  display: grid;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 5px auto;
+}
+
+/* 상단 Row (TopLeft + Splitter + TopRight) */
+.topRow {
+  display: flex;
+  width: 100%;
+  min-height: 800px; /* ✅ TopRow 최소 높이 보장 */
+  overflow: hidden;
+}
+
+/* 왼쪽 메뉴 및 콘텐츠 (TopLeft) */
+.topLeft {
+  display: flex;
+  flex-direction: row;
+  min-width: 800px;         /* ✅ 최소 너비 */
+  background-color: #313338;
+  overflow: hidden;
+}
+
+/* 오른쪽 Viewer 영역 (TopRight) */
+.topRight {
+  flex-grow: 1;
+  min-width: 300px;         /* ✅ 최소 너비 보장 */
+  min-height: 800px;        /* ✅ 최소 높이 보장 */
+  background-color: #1e1f22;
+  overflow: auto;
+}
+
+/* 하단 트랙 영역 */
+.bottom {
+  min-height: 200px;       /* ✅ 최소 높이 보장 */
+    max-height: 400px;       /* ✅ 최소 높이 보장 */
+
+  background-color: #2a2d31;
+  overflow: auto;
+}
+
+/* 수직 분할자 */
+.vertical-splitter {
+  width: 5px;
+  cursor: col-resize;
+  background-color: #404249;
+}
+
+/* 수평 분할자 */
+.horizontal-splitter {
+  height: 5px;
+  cursor: row-resize;
+  background-color: #404249;
+}
+
+/* 스크롤바 숨기기 */
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE */
+  scrollbar-width: none; /* Firefox */
+}
+
+
+/* 로딩 오버레이 전체 배경 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(43, 45, 49, 0.8); /* 반투명 어두운 배경 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* 회전하는 스피너 */
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid #2b2d31;        /* 배경색과 동일한 테두리 */
+  border-top: 6px solid #5865f2;     /* 디스코드 블루 */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 회전 애니메이션 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

@@ -1,3 +1,4 @@
+import '../User.css'
 // src/pages/UserFileManager.jsx
 import React, { useState, useEffect, useRef } from 'react';
 /**
@@ -258,7 +259,7 @@ const UserFileManager = () => {
       }
     });
   }, [files]);
-  
+
 
   // 파일 업로드
   const handleFileChange = async e => {
@@ -330,7 +331,16 @@ const UserFileManager = () => {
 
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: '0 auto' }}>
+    <div
+      style={{
+        padding: 20,
+        maxWidth: 800,
+        margin: '0 auto',
+        height: '100%',          // ✅ 부모 영역을 꽉 채움
+        overflow: 'hidden',      // ✅ 전체 스크롤 막기
+        boxSizing: 'border-box'  // ✅ 패딩 포함한 전체 높이 계산
+      }}
+    >
       <h1>파일 관리</h1>
 
       {/* 검색 + 필터 + 업로드 */}
@@ -359,7 +369,8 @@ const UserFileManager = () => {
       {filtered.length === 0 ? (
         <p>파일 없음</p>
       ) : (
-        <div style={{ maxHeight: 600, overflowY: 'auto' }}>
+        <div className="file-list-scroll">
+
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 150px)', gap: 8, justifyContent: 'center' }}>
             {filtered.map((f, i) => (
               <li

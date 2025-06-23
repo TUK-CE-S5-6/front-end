@@ -7,7 +7,7 @@ import Home from './pages/App2';
 import './App.css';
 import './Layout.css';
 import UserFileManage from './pages/UserFilemanage';
-import ProjectInfor from './pages/ProjectInfor'; // 수정된 상세 페이지 컴포넌트
+import Audio from './pages/audio'; // 수정된 상세 페이지 컴포넌트
 
 import User from './User';
 import TTS from './pages/TTS';
@@ -33,18 +33,20 @@ function App() {
           <Route path="/" element={<Home />} />
           {/* ↓ 중첩 라우트 */}
           <Route path="/editor/:projectId" element={<User />}>
-            <Route index element={<ProjectInfor />} />
+            <Route index element={<UserFileManage />} />
             <Route path="files" element={<UserFileManage />} />
             <Route path="tts" element={<TTS />} />
             <Route path="tts2" element={<TTS2 />} />
             <Route path="script" element={<Script />} />
             <Route path="TTSModel" element={<TTSModel />} />
+            <Route path="Audio" element={<Audio />} />
+
           </Route>
 
           <Route path="*" element={<h2>404 Not Found</h2>} />
 
 
-          
+
         </Routes>
 
       </DndProvider>

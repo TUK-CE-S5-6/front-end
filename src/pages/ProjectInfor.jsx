@@ -67,6 +67,7 @@ async function generateVideoCompositeThumbnail(videoUrl, intervalSec = 1.8) {
 
 const BASE_URL = 'http://175.116.3.178:8000';
 
+
 // 중복 생성 방지용 Sets
 const processedProjects = new Set();
 const processedGroups = new Set();

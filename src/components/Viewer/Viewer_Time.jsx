@@ -346,26 +346,92 @@ const MergeAndPreviewPage = () => {
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
     return (
-        <div style={{ width: '640px', margin: '0 auto' }}>
-            <canvas
-                ref={canvasRef}
-                width={640}
-                height={480}
-                style={{ border: '1px solid #ccc', display: 'block' }}
-            />
-            <div className="controls" style={{ width: '100%', marginTop: '0.5rem' }}>
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                boxSizing: 'border-box',
+            }}
+        >
+            {/* 🎯 [상단] 합성 및 다운로드 버튼 (40px 고정) */}
+            <div
+                style={{
+                    height: '40px',
+                    padding: '0 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    flexShrink: 0,
+                    backgroundColor: '#313338',
+                }}
+            >
+                <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
+            </div>
+            {/* 🎯 [Canvas] 위쪽 영역 (가변 16:9 비율) */}
+            <div
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: '1rem',
+                    boxSizing: 'border-box',
+                }}
+            >
                 <div
                     style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '1rem',
-                        marginBottom: '0.5rem',
+                        width: '100%',
+                        maxWidth: '1000px',
+                        minWidth: '640px',
+                        aspectRatio: '16 / 9',
+                        backgroundColor: 'black',
                     }}
                 >
-                    <button onClick={handlePlay}>▶️ 재생</button>
-                    <button onClick={handleStop}>⏹ 정지</button>
-                    <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
+                    <canvas
+                        ref={canvasRef}
+                        width={1280}
+                        height={720}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            minWidth: '640px',
+                            minHeight: '360px',
+                            maxWidth: '1280px',
+                            maxHeight: '720px',
+                            display: 'block',
+                            border: '1px solid #ccc',
+                        }}
+                    />
                 </div>
+            </div>
+
+            {/* 🎯 [버튼] 아래 40px */}
+            <div
+                style={{
+                    height: '40px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    flexShrink: 0,
+                    backgroundColor: '#313338',
+                }}
+            >
+                <button onClick={handlePlay}>▶️ 재생</button>
+                <button onClick={handleStop}>⏹ 정지</button>
+            </div>
+
+            {/* 🎯 [재생바] 맨 아래 40px */}
+            <div
+                style={{
+                    height: '40px',
+                    padding: '0 1rem',
+                    boxSizing: 'border-box',
+                    flexShrink: 0,
+                    backgroundColor: '#313338',
+                }}
+            >
                 <input
                     type="range"
                     min={0}
@@ -380,8 +446,9 @@ const MergeAndPreviewPage = () => {
                 <div
                     style={{
                         textAlign: 'right',
-                        fontSize: '0.8rem',
-                        marginTop: '0.25rem',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        color: '#f2f3f5',
                     }}
                 >
                     {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
@@ -389,6 +456,10 @@ const MergeAndPreviewPage = () => {
             </div>
         </div>
     );
+
+
+
+
 };
 
 export default MergeAndPreviewPage;
