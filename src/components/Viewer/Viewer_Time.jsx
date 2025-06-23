@@ -2,6 +2,62 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import store from '../../store';
 
+function wrapText(ctx, text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+
+    for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        const testWidth = ctx.measureText(testLine).width;
+        if (testWidth > maxWidth && line !== '') {
+            lines.push(line.trim());
+            line = words[i] + ' ';
+        } else {
+            line = testLine;
+        }
+    }
+    if (line) lines.push(line.trim());
+    return lines;
+}
+function wrapTextByCharCount(text, maxCharsPerLine = 100) {
+    const lines = [];
+    let i = 0;
+
+    while (i < text.length) {
+        lines.push(text.slice(i, i + maxCharsPerLine));
+        i += maxCharsPerLine;
+    }
+
+    return lines;
+}
+
+function splitSubtitleByLineCount(ctx, text, startTime, duration, maxWidth, maxLines = 2) {
+    const allLines = wrapText(ctx, text, maxWidth);
+
+    if (allLines.length <= maxLines) {
+        return [{ start: startTime, end: startTime + duration, lines: allLines }];
+    }
+
+    const totalChars = allLines.join('').length;
+    const parts = [];
+    let currentStart = startTime;
+
+    for (let i = 0; i < allLines.length; i += maxLines) {
+        const linesGroup = allLines.slice(i, i + maxLines);
+        const groupChars = linesGroup.join('').length;
+        const groupDuration = duration * (groupChars / totalChars);
+        parts.push({
+            start: currentStart,
+            end: currentStart + groupDuration,
+            lines: linesGroup
+        });
+        currentStart += groupDuration;
+    }
+
+    return parts;
+}
+
 // 자막 분할 유틸 (기존 코드 그대로 복원)
 function splitSubtitleBySentenceWeight(text, startTime, duration) {
     const sentences = text.split(/(?<=[.?!])\s+/);
@@ -9,7 +65,7 @@ function splitSubtitleBySentenceWeight(text, startTime, duration) {
     return sentences.map((s, i) => ({
         start: startTime + perSentence * i,
         end: startTime + perSentence * (i + 1),
-        lines: [s],
+        lines: wrapTextByCharCount(s, 70), // ⬅️ 여기에 적용
     }));
 }
 
@@ -148,22 +204,25 @@ const MergeAndPreviewPage = () => {
                     timeSec >= start &&
                     timeSec <= start + dur
                 ) {
-                    const parts = splitSubtitleBySentenceWeight(
+                    const parts = splitSubtitleByLineCount(
+                        ctx,
                         track.translatedText,
                         start,
-                        dur
+                        dur,
+                        canvas.width * 0.9 // 90% 폭 기준
                     );
                     parts.forEach(({ start, end, lines }) => {
                         if (timeSec >= start && timeSec <= end) {
-                            const x = c.width / 2;
+                            const x = canvas.width / 2;
                             const fontSize = 28;
                             const lineHeight = 36;
-                            const baseY = c.height - lines.length * lineHeight - 20;
+                            const baseY = canvas.height - lines.length * lineHeight - 20;
                             ctx.font = `${fontSize}px sans-serif`;
                             ctx.textAlign = 'center';
                             ctx.lineWidth = 4;
                             ctx.strokeStyle = 'black';
                             ctx.fillStyle = 'white';
+
                             lines.forEach((line, i) => {
                                 const y = baseY + i * lineHeight;
                                 ctx.strokeText(line, x, y);
@@ -171,6 +230,7 @@ const MergeAndPreviewPage = () => {
                             });
                         }
                     });
+
                 }
             });
         });
@@ -370,41 +430,43 @@ const MergeAndPreviewPage = () => {
             </div>
             {/* 🎯 [Canvas] 위쪽 영역 (가변 16:9 비율) */}
             <div
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: '1rem',
-                    boxSizing: 'border-box',
-                }}
-            >
-                <div
-                    style={{
-                        width: '100%',
-                        maxWidth: '1000px',
-                        minWidth: '640px',
-                        aspectRatio: '16 / 9',
-                        backgroundColor: 'black',
-                    }}
-                >
-                    <canvas
-                        ref={canvasRef}
-                        width={1280}
-                        height={720}
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            minWidth: '640px',
-                            minHeight: '360px',
-                            maxWidth: '1280px',
-                            maxHeight: '720px',
-                            display: 'block',
-                            border: '1px solid #ccc',
-                        }}
-                    />
-                </div>
-            </div>
+  style={{
+    flex: '0 1 auto',
+    height: 'calc(100% - 40px - 40px - 40px)', // 전체 화면에서 나머지 3줄 제외
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '1rem',
+    boxSizing: 'border-box',
+  }}
+>
+  <div
+    style={{
+      width: '100%',
+      maxWidth: '1000px',
+      minWidth: '640px',
+      aspectRatio: '16 / 9',
+      backgroundColor: 'black',
+    }}
+  >
+    <canvas
+      ref={canvasRef}
+      width={1280}
+      height={720}
+      style={{
+        width: '100%',
+        height: '100%',
+        minWidth: '640px',
+        minHeight: '360px',
+        maxWidth: '1280px',
+        maxHeight: '720px',
+        display: 'block',
+        border: '1px solid #ccc',
+      }}
+    />
+  </div>
+</div>
+
 
             {/* 🎯 [버튼] 아래 40px */}
             <div

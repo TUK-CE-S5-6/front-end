@@ -241,8 +241,16 @@ const AudioTracks = () => {
         <div key={group.id} style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', border: '1px solid #ccc' }}>
             {/* 좌측 메뉴 영역 */}
-            <div style={{ width: 210, backgroundColor: '#eee', overflow: 'visible' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div
+              style={{
+                width: 210,
+                backgroundColor: '#eee',
+                overflow: 'visible',
+                left: 0,
+                top: 0,
+                zIndex: 2, // 우선순위 조절 필요 시 추가
+              }}
+            >              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {editingGroupId === group.id ? (
                   <input
                     type="text"
@@ -314,7 +322,7 @@ const AudioTracks = () => {
                 // ↓ 여기가 핵심: timelineDuration * 100px 만큼 너비를 고정
                 width: `${timelineDuration * 100}px`,
                 minWidth: `${timelineDuration * 100}px`,
-                overflow: 'hidden'
+                overflowx: 'visible',
               }}
             >
               {group.tracks.map(item => {
@@ -376,7 +384,7 @@ const AudioTracks = () => {
       )
       }
 
-      
+
     </div >
   );
 };

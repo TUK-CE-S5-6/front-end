@@ -12,7 +12,11 @@ const formatTime = (seconds) => {
     .toString()
     .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
-
+const useTotalTrackGroupCount = () => {
+  const audioTracks = useSelector((state) => state.audioTracks);
+  const videoTracks = useSelector((state) => state.videoTracks);
+  return audioTracks.length + videoTracks.length;
+};
 const Track = () => {
   const trackOffset = 200; // 눈금 및 빨간선 시작 위치
   const dragRef = useRef(null);
@@ -31,7 +35,9 @@ const Track = () => {
   const [localTime, setLocalTime] = useState(reduxTime);
   const startTimeRef = useRef(Date.now());
   const containerRef = useRef(null);
-
+  const totalGroupCount = useTotalTrackGroupCount();
+  const trackHeight = 100; // 한 그룹당 높이
+  const totalHeight = totalGroupCount * trackHeight + 11; // + 여유 padding
   useEffect(() => {
     let raf;
     if (isPlaying) {
@@ -247,13 +253,13 @@ const Track = () => {
       <div
         style={{
           position: 'absolute',
-          top: '90px',
+          top: '97px',
           left: markerLeft + trackOffset,
           width: '2px',
-          height: '100%',
+          height: `${totalHeight}px`, // 동적으로 조절됨
           background: 'red',
           zIndex: 9999,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       />
 
@@ -263,10 +269,10 @@ const Track = () => {
         onMouseDown={handleDragStart}
         style={{
           position: 'absolute',
-          top: '90px',
-          left: markerLeft + trackOffset - 4,
-          width: '10px',
-          height: '10px',
+          top: '80px',
+          left: markerLeft + trackOffset - 8,
+          width: '17px',
+          height: '17px',
           borderRadius: '50%',
           background: 'red',
           zIndex: 10000,

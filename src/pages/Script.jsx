@@ -9,21 +9,21 @@ const formatTime = (seconds) => {
 
 const Script = () => {
   const dispatch = useDispatch();
-  const audioTracks = useSelector(state => state.audioTracks);
+  const audioTracks = useSelector((state) => state.audioTracks);
 
   const [editedTexts, setEditedTexts] = useState({});
 
   // ✅ useEffect로 editedTexts 초기화
   useEffect(() => {
     const valid = audioTracks
-      .flatMap(group => group.tracks)
-      .filter(track => track.originalText && track.translatedText);
+      .flatMap((group) => group.tracks)
+      .filter((track) => track.originalText && track.translatedText);
 
     const initial = {};
-    valid.forEach(track => {
+    valid.forEach((track) => {
       initial[track.id] = {
         originalText: track.originalText,
-        translatedText: track.translatedText
+        translatedText: track.translatedText,
       };
     });
     setEditedTexts(initial);
@@ -31,19 +31,19 @@ const Script = () => {
 
   // ✅ 사용자 입력 핸들링
   const handleChange = (id, field, value) => {
-    setEditedTexts(prev => ({
+    setEditedTexts((prev) => ({
       ...prev,
       [id]: {
         ...prev[id],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   // ✅ 서버로 수정 요청 보내고 store + 로컬 상태 반영
   const handleSubmit = async (trackId) => {
-    const allTracks = audioTracks.flatMap(g => g.tracks);
-    const track = allTracks.find(t => t.id === trackId);
+    const allTracks = audioTracks.flatMap((g) => g.tracks);
+    const track = allTracks.find((t) => t.id === trackId);
     const edited = editedTexts[trackId];
     if (!track || !edited) return;
 
@@ -53,7 +53,7 @@ const Script = () => {
     formData.append('text', edited.originalText); // ← 사용자가 수정한 텍스트
 
     try {
-      const res = await fetch('http://175.116.3.178:8001/edit-tts', {
+      const res = await fetch('http://localhost:8001/edit-tts', {
         method: 'POST',
         body: formData,
       });
@@ -73,17 +73,17 @@ const Script = () => {
           duration: result.duration,
           url: result.url,
           translatedText: result.translateText,
-          originalText: edited.originalText
-        }
+          originalText: edited.originalText,
+        },
       });
 
       // ✅ 로컬 상태 업데이트
-      setEditedTexts(prev => ({
+      setEditedTexts((prev) => ({
         ...prev,
         [result.id]: {
           originalText: result.originalText,
-          translatedText: result.translateText
-        }
+          translatedText: result.translateText,
+        },
       }));
 
       alert(`TTS 수정 완료: ${result.message}`);
@@ -94,13 +94,13 @@ const Script = () => {
   };
 
   const validTracks = audioTracks
-    .flatMap(group => group.tracks)
-    .filter(track => track.originalText && track.translatedText);
+    .flatMap((group) => group.tracks)
+    .filter((track) => track.originalText && track.translatedText);
 
   return (
     <div style={{ padding: '1rem', fontFamily: 'sans-serif' }}>
-      <h2>스크립트</h2>
-      {validTracks.map(track => {
+      <h1>📝대본</h1>
+      {validTracks.map((track) => {
         const { id, startTime, duration } = track;
         const endTime = startTime + duration;
         const edited = editedTexts[id] || {};
@@ -113,47 +113,62 @@ const Script = () => {
               borderRadius: '8px',
               padding: '1rem',
               marginBottom: '1.5rem',
-              background: '#fafafa'
+              background: '#fafafa',
             }}
           >
             <div style={{ display: 'flex', gap: '1rem' }}>
               {/* 원본 텍스트 수정 */}
               <div style={{ flex: 1, padding: '10px' }}>
-                <h4>원본 텍스트</h4>
+                <h4 style={{ color: '#333', marginBottom: '0.5rem' }}>
+                  원본 텍스트
+                </h4>
                 <textarea
                   value={edited.originalText || ''}
-                  onChange={(e) => handleChange(id, 'originalText', e.target.value)}
+                  onChange={(e) =>
+                    handleChange(id, 'originalText', e.target.value)
+                  }
                   style={{
                     width: '100%',
                     minHeight: '80px',
                     padding: '0.5rem',
                     border: '1px solid #aaa',
                     borderRadius: '4px',
-                    resize: 'vertical'
+                    resize: 'vertical',
                   }}
                 />
               </div>
 
               {/* 번역 텍스트 수정 */}
               <div style={{ flex: 1, padding: '10px' }}>
-                <h4>번역 텍스트</h4>
+                <h4 style={{ color: '#1a73e8', marginBottom: '0.5rem' }}>
+                  번역 텍스트
+                </h4>
                 <textarea
                   value={edited.translatedText || ''}
-                  onChange={(e) => handleChange(id, 'translatedText', e.target.value)}
+                  onChange={(e) =>
+                    handleChange(id, 'translatedText', e.target.value)
+                  }
                   style={{
                     width: '100%',
                     minHeight: '80px',
                     padding: '0.5rem',
                     border: '1px solid #aaa',
                     borderRadius: '4px',
-                    resize: 'vertical'
+                    resize: 'vertical',
+                    color: '#1a73e8',
                   }}
                 />
               </div>
             </div>
 
             {/* 시간 표시 */}
-            <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#555' }}>
+            <p
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.9rem',
+                color: '#555',
+              }}
+            >
               <strong>시작:</strong> {formatTime(startTime)} &nbsp;|&nbsp;
               <strong>종료:</strong> {formatTime(endTime)}
             </p>
@@ -169,7 +184,7 @@ const Script = () => {
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               TTS 수정 요청

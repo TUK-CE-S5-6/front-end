@@ -5,10 +5,12 @@ function CreateVoiceCloneForm() {
   const [name, setName] = useState('');
   const [files, setFiles] = useState([]);
   const [removeBackgroundNoise, setRemoveBackgroundNoise] = useState(false);
-  const [description, setDescription] = useState('');
   const [gender, setGender] = useState('male');
   const [language, setLanguage] = useState('ko');
   const [message, setMessage] = useState('');
+
+  // 고정 필드 너비
+  const fieldWidth = '120px';
 
   // 파일 변경 핸들러
   const handleFileChange = (e) => {
@@ -21,34 +23,20 @@ function CreateVoiceCloneForm() {
 
     const formData = new FormData();
     formData.append('name', name);
-
-    // 파일들
     for (let i = 0; i < files.length; i++) {
       formData.append('files', files[i]);
     }
-
-    // 배경 소음 제거 옵션
     formData.append('remove_background_noise', removeBackgroundNoise);
-
-    // optional description
-    if (description) {
-      formData.append('description', description);
-    }
-
-    // labels JSON (gender, language)
+    formData.append('description', null);
     const labelsObj = { gender, lang: language };
     formData.append('labels', JSON.stringify(labelsObj));
 
     try {
-      const response = await fetch('http://175.116.3.178:8001/create-voice-model', {
+      const response = await fetch('http://localhost:8001/create-voice-model', {
         method: 'POST',
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`Server 상태 ${response.status}`);
       const result = await response.json();
       setMessage(
         `🎉 보이스 모델 생성 완료! voice_id: ${result.voice_id}, db_id: ${result.db_id}`
@@ -60,24 +48,39 @@ function CreateVoiceCloneForm() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Create Voice Clone</h2>
+    <div
+      style={{
+        maxWidth: '600px',
+        margin: '0 auto',
+        padding: '1rem',
+      }}
+    >
+      <h1 style={{ color: '#fff' }}>🧬 보이스 모델 생성</h1>
       <form onSubmit={handleSubmit}>
-        {/* name */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>모델 이름 (Required):</label><br />
+        {/* 모델 이름 (너비 1/3) */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ color: '#ddd' }}>모델 이름 (필수)</label>
+          <br />
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            style={{ width: '100%' }}
+            style={{
+              width: '33%',
+              padding: '8px',
+              borderRadius: '4px',
+              border: '1px solid #444',
+            }}
           />
         </div>
 
-        {/* files */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>음성 샘플 업로드 (Required 10MB 제한):</label><br />
+        {/* 음성 샘플 업로드 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ color: '#ddd' }}>
+            음성 샘플 업로드 (필수, 10MB 제한)
+          </label>
+          <br />
           <input
             type="file"
             accept="audio/*"
@@ -86,64 +89,94 @@ function CreateVoiceCloneForm() {
           />
         </div>
 
-        {/* remove noise */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>
+        {/* 배경 소음 제거 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ color: '#ddd' }}>
             <input
               type="checkbox"
               checked={removeBackgroundNoise}
               onChange={(e) => setRemoveBackgroundNoise(e.target.checked)}
-            /> 배경 소음 제거
+            />{' '}
+            배경 소음 제거
           </label>
         </div>
 
-        {/* description */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>설명 (Optional):</label><br />
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            style={{ width: '100%' }}
-          />
+        {/* 성별 + 언어 가로 배치 */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '1rem',
+            marginBottom: '1rem',
+            alignItems: 'flex-end',
+          }}
+        >
+          {/* 성별 */}
+          <div style={{ flex: 1 }}>
+            <label style={{ color: '#ddd' }}>성별</label>
+            <br />
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              style={{
+                width: fieldWidth,
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid #444',
+              }}
+            >
+              <option value="male">남성</option>
+              <option value="female">여성</option>
+              <option value="other">기타</option>
+            </select>
+          </div>
+
+          {/* 언어 */}
+          <div style={{ flex: 1 }}>
+            <label style={{ color: '#ddd' }}>언어</label>
+            <br />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              style={{
+                width: fieldWidth,
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid #444',
+              }}
+            >
+              <option value="ko">한국어</option>
+              <option value="en">English(영어)</option>
+              <option value="ja">日本語(일본어)</option>
+              <option value="zh">中文(중국어)</option>
+            </select>
+          </div>
         </div>
 
-        {/* gender select */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>성별:</label><br />
-          <select
-            value={gender}
-            onChange={(e) => setGender(e.target.value)}
-            style={{ width: '100%', padding: '4px' }}
+        {/* 제출 버튼 아래 배치 */}
+        <div>
+          <button
+            type="submit"
+            style={{
+              padding: '10px',
+              backgroundColor: '#7289da',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
           >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
+            모델 생성
+          </button>
         </div>
-
-        {/* language select */}
-        <div style={{ marginBottom: '10px' }}>
-          <label>언어:</label><br />
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={{ width: '100%', padding: '4px' }}
-          >
-            <option value="ko">한국어</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-            <option value="zh">中文</option>
-          </select>
-        </div>
-
-        <button type="submit" style={{ marginTop: '10px' }}>
-          모델 생성
-        </button>
       </form>
 
       {message && (
-        <div style={{ marginTop: '20px', color: message.startsWith('❌') ? 'red' : 'green' }}>
+        <div
+          style={{
+            marginTop: '1rem',
+            color: message.startsWith('❌') ? '#f04747' : '#43b581',
+          }}
+        >
           {message}
         </div>
       )}

@@ -134,7 +134,9 @@ function AudioGenerator({ loggedInUser }) {
       `}</style>
 
       <div className="audio-generator-container">
-        <h2>🎶 효과음 생성하기</h2>
+        <h2 style={{ color: '#ffffff', marginBottom: '0.5rem' }}>
+          🎶 효과음 생성하기
+        </h2>
 
         {!user ? (
           <p className="error">⚠️ 로그인 후 이용 가능합니다.</p>
@@ -146,6 +148,7 @@ function AudioGenerator({ loggedInUser }) {
                   key={p.name}
                   onClick={() => setText(p.description)}
                   className="preset-button"
+                  style={{ color: '#000000', marginBottom: '0.5rem' }}
                 >
                   {p.name}
                 </button>

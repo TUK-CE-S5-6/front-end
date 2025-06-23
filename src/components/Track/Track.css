@@ -14,8 +14,8 @@
       width: calc(100% - 170px);
       height: 30px;
       padding-top: 20px;
-      border-bottom: 1px solid #72767d;
-      background-color: #36393f;
+      border-bottom: 1px solid #005eff;
+      background-color: #0055ff;
       position: sticky;
       top: 0;
       z-index: 200;
@@ -40,14 +40,14 @@
     margin-left: 170px;
     min-width: 30000px;
     height: 60px;
-    background-color: #dcddde;
+    background-color: #0080ff;
   }
   
   /* 블루 트랙 (오디오 트랙) 영역 */
   .blue-box {
     min-width: 30000px;
     height: 60px;
-    background-color: #dcddde;
+    background-color: #0080ff;
     position: relative;
   }
   
@@ -55,7 +55,7 @@
   .red-box {
     min-width: 30000px;
     height: 60px;
-    background-color: #dcddde;
+    background-color: #0080ff;
     position: relative;
   }
   
@@ -64,8 +64,8 @@
     position: absolute;
     top: 0;
     height: 60px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid #4f545c;
+    background-color: rgba(255, 0, 0, 0.1);
+    border: 1px solid #0062ff;
     text-align: center;
     line-height: 40px;
     cursor: grab;

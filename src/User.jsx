@@ -348,16 +348,27 @@ function User() {
   };
 
   useEffect(() => {
+    const MAX_BOTTOM_HEIGHT = 200;
+    const MIN_BOTTOM_HEIGHT = 100;
+
     const handleHorizontalMouseMove = (e) => {
       if (!isDraggingHorizontal.current || !containerRef.current) return;
+
       const containerRect = containerRef.current.getBoundingClientRect();
-      let newBottomHeight = containerRect.bottom - e.clientY;
-      if (newBottomHeight < 100) newBottomHeight = 100;
-      if (newBottomHeight > containerRect.height - horizontalSplitterHeight - 100) {
-        newBottomHeight = containerRect.height - horizontalSplitterHeight - 100;
-      }
+      const containerBottom = containerRect.bottom;
+
+      const cursorY = e.clientY;
+      const maxAllowedY = containerBottom - MIN_BOTTOM_HEIGHT;
+      const minAllowedY = containerBottom - MAX_BOTTOM_HEIGHT;
+
+      // ✅ 막대가 위로 너무 올라가지 않도록
+      if (cursorY < minAllowedY || cursorY > maxAllowedY) return;
+
+      let newBottomHeight = containerBottom - cursorY;
+
       setBottomHeight(newBottomHeight);
     };
+
 
     const handleHorizontalMouseUp = () => {
       isDraggingHorizontal.current = false;
@@ -365,11 +376,14 @@ function User() {
 
     window.addEventListener('mousemove', handleHorizontalMouseMove);
     window.addEventListener('mouseup', handleHorizontalMouseUp);
+
     return () => {
       window.removeEventListener('mousemove', handleHorizontalMouseMove);
       window.removeEventListener('mouseup', handleHorizontalMouseUp);
     };
   }, []);
+
+
 
   const handleHorizontalSplitterMouseDown = () => {
     isDraggingHorizontal.current = true;
@@ -433,7 +447,7 @@ function User() {
           <div className="spinner" />
         </div>
       )}
-      
+
       <div style={{ height: '100vh', overflow: 'hidden' }}>  {/* ✅ 전체 화면 고정 및 스크롤 제거 */}
         <div
           className="container"
@@ -474,6 +488,19 @@ function User() {
                 }}
               >
 
+                <NavLink
+                  to="/"
+                  end
+                  style={({ isActive }) => ({
+                    fontWeight: isActive ? 'bold' : 'normal',
+                    color: isActive ? '#5865f2' : '#f2f3f5',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    backgroundColor: isActive ? '#404249' : 'transparent'
+                  })}
+                >
+                  🏠 Home
+                </NavLink>
 
                 <NavLink
                   to="files"
@@ -590,11 +617,19 @@ function User() {
             }}
           ></div>
           {/* 하단 영역: Track 컴포넌트 */}
-          <div className="bottom hide-scrollbar" style={{ gridColumn: '1 / span 2', overflow: 'auto' }}>
+          <div
+            style={{
+              overflowX: 'hidden',   // 가로 스크롤은 허용
+              overflowY: 'auto', // 세로 스크롤은 비활성화
+              width: '100%',
+              height: '100%'
+            }}
+          >
             <Track />
           </div>
 
         </div>
+
       </div>
     </div>
   );

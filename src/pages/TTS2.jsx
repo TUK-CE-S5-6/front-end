@@ -14,13 +14,18 @@ const TTSGenerator = () => {
 
   useEffect(() => {
     // 페이지 로드 시 서버에서 보이스 모델 목록 불러오기
-    axios.get('http://175.116.3.178:8001/voice-models')
-      .then(res => {
+    axios
+      .get('http://localhost:8001/voice-models')
+      .then((res) => {
         setVoiceOptions(
-          res.data.map(vm => ({ id: vm.db_id, label: vm.name, value: vm.voice_id }))
+          res.data.map((vm) => ({
+            id: vm.db_id,
+            label: vm.name,
+            value: vm.voice_id,
+          }))
         );
       })
-      .catch(err => console.error('보이스 목록 로드 실패:', err));
+      .catch((err) => console.error('보이스 목록 로드 실패:', err));
   }, []);
 
   const openModal = (voice) => {
@@ -48,7 +53,8 @@ const TTSGenerator = () => {
 
     try {
       const userId = getUserId();
-      if (!userId) throw new Error('userId가 없습니다. 로그인 후 새로고침 해주세요.');
+      if (!userId)
+        throw new Error('userId가 없습니다. 로그인 후 새로고침 해주세요.');
 
       const formData = new FormData();
       formData.append('text', textInput);
@@ -56,7 +62,7 @@ const TTSGenerator = () => {
       formData.append('user_id', userId);
 
       const response = await axios.post(
-        'http://175.116.3.178:8001/generate-tts',
+        'http://localhost:8001/generate-tts',
         formData
       );
 
@@ -67,25 +73,43 @@ const TTSGenerator = () => {
       }
     } catch (err) {
       console.error(err);
-      setError(`❌ 오류: ${err.response?.status || ''} ${err.response?.data?.detail || err.message}`);
+      setError(
+        `❌ 오류: ${err.response?.status || ''} ${
+          err.response?.data?.detail || err.message
+        }`
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '40px auto', textAlign: 'center' }}>
-      <h2>🎙️ TTS Generator_ver2</h2>
+    <div
+      style={{ maxWidth: '400px', margin: '40px auto', textAlign: 'center' }}
+    >
+      <h2>🎤 텍스트-음성 변환기</h2>
 
-      {voiceOptions.map(voice => (
+      {voiceOptions.map((voice) => (
         <div
           key={voice.id}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '10px',
+          }}
         >
           <span>{voice.label}</span>
           <button
             onClick={() => openModal(voice)}
-            style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #007bff', background: '#fff', cursor: 'pointer' }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '4px',
+              border: '1px solid #000000',
+              backgroundColor: '#007bff',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
           >
             TTS 생성
           </button>
@@ -95,33 +119,81 @@ const TTSGenerator = () => {
       {modalOpen && (
         <div
           style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
             zIndex: 1000,
           }}
         >
-          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '300px', textAlign: 'center' }}>
+          <div
+            style={{
+              background: '#fff',
+              padding: '20px',
+              borderRadius: '8px',
+              width: '90%',
+              maxWidth: '300px',
+              textAlign: 'center',
+            }}
+          >
             <h3>{selectedVoice.label} TTS</h3>
             <textarea
               rows={4}
               value={textInput}
-              onChange={e => setTextInput(e.target.value)}
+              onChange={(e) => setTextInput(e.target.value)}
               placeholder="텍스트 입력"
-              style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'none' }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                marginBottom: '10px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                resize: 'none',
+              }}
             />
             {error && <p style={{ color: 'red' }}>{error}</p>}
-            {ttsIdResult && <p style={{ color: 'green' }}>✅ ID: {ttsIdResult}</p>}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+            {ttsIdResult && (
+              <p style={{ color: 'green' }}>✅ ID: {ttsIdResult}</p>
+            )}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: '10px',
+              }}
+            >
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                style={{ flex: 1, marginRight: '5px', padding: '8px', borderRadius: '4px', border: 'none', background: '#007bff', color: '#fff', cursor: 'pointer' }}
+                style={{
+                  flex: 1,
+                  marginRight: '5px',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  background: '#007bff',
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
               >
                 {loading ? '생성 중...' : '생성'}
               </button>
               <button
                 onClick={closeModal}
-                style={{ flex: 1, marginLeft: '5px', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}
+                style={{
+                  flex: 1,
+                  marginLeft: '5px',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  background: '#fff',
+                  cursor: 'pointer',
+                }}
               >
                 취소
               </button>

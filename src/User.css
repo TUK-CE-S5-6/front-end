@@ -89,7 +89,6 @@
 .topRow {
   display: flex;
   width: 100%;
-  min-height: 800px; /* ✅ TopRow 최소 높이 보장 */
   overflow: hidden;
 }
 
@@ -113,11 +112,8 @@
 
 /* 하단 트랙 영역 */
 .bottom {
-  min-height: 200px;       /* ✅ 최소 높이 보장 */
-    max-height: 400px;       /* ✅ 최소 높이 보장 */
 
   background-color: #2a2d31;
-  overflow: auto;
 }
 
 /* 수직 분할자 */
