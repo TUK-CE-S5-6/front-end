@@ -201,7 +201,6 @@ const Track = () => {
       {/* 🎛 상단 컨트롤 바 */}
       <div
         style={{
-          position: 'sticky',      // ✅ 상단에 고정
           top: 0,                  // ✅ 화면 최상단
           zIndex: 10,              // ✅ 겹침 우선순위 설정
           display: 'flex',

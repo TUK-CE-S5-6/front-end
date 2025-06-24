@@ -32,7 +32,7 @@ function CreateVoiceCloneForm() {
     formData.append('labels', JSON.stringify(labelsObj));
 
     try {
-      const response = await fetch('http://localhost:8001/create-voice-model', {
+      const response = await fetch('http://175.116.3.178:8001/create-voice-model', {
         method: 'POST',
         body: formData,
       });

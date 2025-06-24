@@ -96,7 +96,6 @@
 .topLeft {
   display: flex;
   flex-direction: row;
-  min-width: 800px;         /* ✅ 최소 너비 */
   background-color: #313338;
   overflow: hidden;
 }

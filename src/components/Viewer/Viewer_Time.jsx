@@ -60,16 +60,55 @@ function splitSubtitleByLineCount(ctx, text, startTime, duration, maxWidth, maxL
 
 // 자막 분할 유틸 (기존 코드 그대로 복원)
 function splitSubtitleBySentenceWeight(text, startTime, duration) {
-    const sentences = text.split(/(?<=[.?!])\s+/);
-    const perSentence = duration / sentences.length;
-    return sentences.map((s, i) => ({
-        start: startTime + perSentence * i,
-        end: startTime + perSentence * (i + 1),
-        lines: wrapTextByCharCount(s, ), // ⬅️ 여기에 적용
-    }));
-}
+        const sentences = text.split(/(?<=[.?!])\s+/);
+        const perSentence = duration / sentences.length;
+        return sentences.map((s, i) => {
+            // wrapTextByLangBreak: 영문 80/70자, CJK(한글·일본·중국어) 40/35자 기준
+            const lines = wrapTextByLangBreak(s, 80, 70);
+            return {
+                start: startTime + perSentence * i,
+                end:   startTime + perSentence * (i + 1),
+                lines,
+           };
+        });
+    }
 
-const baseUrl = 'http://localhost:8000/';
+function wrapTextByLangBreak(text, fullLimit = 90, fullSoft = 80) {
+    const lines = [];
+    let remaining = text.trim();
+  
+    // CJK(중국어·일본어) + 한글 유니코드 범위
+    const CJK_HANGUL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF]/;
+    const isCJK = (str) => CJK_HANGUL_REGEX.test(str);
+  
+    while (remaining.length > 0) {
+      // 남은 길이가 풀 리밋 이하면 그대로
+      // 하지만 CJK 텍스트라면 절반 리밋 기준
+      const useCJK = isCJK(remaining);
+      const maxChars    = useCJK ? Math.floor(fullLimit  / 2) : fullLimit;
+      const softLimit   = useCJK ? Math.floor(fullSoft   / 2) : fullSoft;
+      const slice       = remaining.slice(0, maxChars);
+  
+      // softLimit 이후 첫 공백/구두점 찾기
+      const nextBreakChars = /[ \u3000-\u303F\.\,，、。…\?\!！；：]/;
+      let breakPos = -1;
+      for (let i = softLimit; i < slice.length; i++) {
+        if (nextBreakChars.test(slice[i])) {
+          breakPos = i + 1;
+          break;
+        }
+      }
+      if (breakPos < 0) breakPos = maxChars;
+  
+      // 한 줄 잘라내기
+      lines.push(slice.slice(0, breakPos).trim());
+      remaining = remaining.slice(breakPos).trim();
+    }
+  
+    return lines;
+  }
+
+const baseUrl = 'http://175.116.3.178:8000/';
 
 const MergeAndPreviewPage = () => {
     const videoTracks = useSelector((state) => state.videoTracks);
@@ -100,44 +139,44 @@ const MergeAndPreviewPage = () => {
     }, [videoTracks, audioTracks]);
 
     useEffect(() => {
-  // 비디오
-  videoTracks.forEach((group) => {
-    group.tracks.forEach((track) => {
-      const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
-      const existing = videoElementsRef.current[track.id];
+        // 비디오
+        videoTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
+                const existing = videoElementsRef.current[track.id];
 
-      if (!existing || existing.src !== url) {
-        const v = document.createElement('video');
-        v.crossOrigin = 'anonymous';
-        v.preload = 'auto';
-        v.src = url;
-        v.volume = group.volume / 100;
-        videoElementsRef.current[track.id] = v;
-      }
-    });
-  });
+                if (!existing || existing.src !== url) {
+                    const v = document.createElement('video');
+                    v.crossOrigin = 'anonymous';
+                    v.preload = 'auto';
+                    v.src = url;
+                    v.volume = group.volume / 100;
+                    videoElementsRef.current[track.id] = v;
+                }
+            });
+        });
 
-  // 오디오
-  audioTracks.forEach((group) => {
-    group.tracks.forEach((track) => {
-      const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
-      const existing = audioElementsRef.current[track.id];
+        // 오디오
+        audioTracks.forEach((group) => {
+            group.tracks.forEach((track) => {
+                const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
+                const existing = audioElementsRef.current[track.id];
 
-      if (!existing || existing.src !== url) {
-        const a = document.createElement('audio');
-        a.preload = 'auto';
-        a.src = url;
-        a.volume = group.volume / 100;
-        audioElementsRef.current[track.id] = a;
-      }
-    });
-  });
+                if (!existing || existing.src !== url) {
+                    const a = document.createElement('audio');
+                    a.preload = 'auto';
+                    a.src = url;
+                    a.volume = group.volume / 100;
+                    audioElementsRef.current[track.id] = a;
+                }
+            });
+        });
 
-  return () => {
-    timeoutsRef.current.forEach(clearTimeout);
-    cancelAnimationFrame(animationFrameRef.current);
-  };
-}, [videoTracks, audioTracks]);
+        return () => {
+            timeoutsRef.current.forEach(clearTimeout);
+            cancelAnimationFrame(animationFrameRef.current);
+        };
+    }, [videoTracks, audioTracks]);
 
 
     // 슬라이더 이동 (Seek)
@@ -219,19 +258,41 @@ const MergeAndPreviewPage = () => {
                             const fontSize = 28;
                             const lineHeight = 36;
                             const baseY = canvas.height - lines.length * lineHeight - 20;
-                            ctx.font = `${fontSize}px sans-serif`;
-                            ctx.textAlign = 'center';
+
+
+                            ctx.font = `${fontSize}px sans-serif`;        // [변경] 그대로
+                            ctx.textAlign = 'center';                          // [변경] 그대로
+
+                            // 배경 박스 계산                                             // [추가]
+                            const padding = 10;                                // [추가]
+                            let maxLineWidth = 0;                                 // [추가]
+                            lines.forEach(line => {
+                                const w = ctx.measureText(line).width;               // [추가]
+                                if (w > maxLineWidth) maxLineWidth = w;              // [추가]
+                            });
+                            const rectWidth = maxLineWidth + padding * 2;          // [추가]
+                            const rectHeight = lineHeight * lines.length + padding * 2; // [추가]
+                            const rectX = x - rectWidth / 2;                  // [추가]
+                            const rectY = baseY - padding;                     // [추가]
+
+                            // 검정 반투명 박스 그리기                                  // [추가]
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';                    // [추가]
+                            ctx.fillRect(rectX, rectY, rectWidth, rectHeight);      // [추가]
+
+                            // 텍스트 스트로크/채우기                                   // [변경]
                             ctx.lineWidth = 4;
                             ctx.strokeStyle = 'black';
                             ctx.fillStyle = 'white';
-
                             lines.forEach((line, i) => {
                                 const y = baseY + i * lineHeight;
                                 ctx.strokeText(line, x, y);
                                 ctx.fillText(line, x, y);
                             });
+
+                            // ↑ 교체 끝 ↑
                         }
                     });
+
 
                 }
             });
@@ -408,122 +469,120 @@ const MergeAndPreviewPage = () => {
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
     return (
-        <div
-            style={{
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                boxSizing: 'border-box',
-            }}
-        >
-            {/* 🎯 [상단] 합성 및 다운로드 버튼 (40px 고정) */}
-            <div
-                style={{
-                    height: '40px',
-                    padding: '0 1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    flexShrink: 0,
-                    backgroundColor: '#313338',
-                }}
-            >
-                <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
-            </div>
-            {/* 🎯 [Canvas] 위쪽 영역 (가변 16:9 비율) */}
-            <div
-  style={{
-    flex: '0 1 auto',
-    height: 'calc(100% - 40px - 40px - 40px)', // 전체 화면에서 나머지 3줄 제외
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '1rem',
-    boxSizing: 'border-box',
-  }}
->
-  <div
-    style={{
-      width: '100%',
-      maxWidth: '1000px',
-      minWidth: '640px',
-      aspectRatio: '16 / 9',
-      backgroundColor: 'black',
-    }}
-  >
-    <canvas
-      ref={canvasRef}
-      width={1280}
-      height={720}
+    <div
       style={{
-        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
-        minWidth: '640px',
-        minHeight: '360px',
-        maxWidth: '1280px',
-        maxHeight: '720px',
-        display: 'block',
-        border: '1px solid #ccc',
+        boxSizing: 'border-box',
       }}
-    />
-  </div>
-</div>
+    >
+      {/* 상단 버튼 영역 */}
+      <div
+        style={{
+          height: '40px',
+          padding: '0 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+        }}
+      >
+        <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
+      </div>
 
-
-            {/* 🎯 [버튼] 아래 40px */}
-            <div
-                style={{
-                    height: '40px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    flexShrink: 0,
-                    backgroundColor: '#313338',
-                }}
-            >
-                <button onClick={handlePlay}>▶️ 재생</button>
-                <button onClick={handleStop}>⏹ 정지</button>
-            </div>
-
-            {/* 🎯 [재생바] 맨 아래 40px */}
-            <div
-                style={{
-                    height: '40px',
-                    padding: '0 1rem',
-                    boxSizing: 'border-box',
-                    flexShrink: 0,
-                    backgroundColor: '#313338',
-                }}
-            >
-                <input
-                    type="range"
-                    min={0}
-                    max={totalDuration}
-                    step="0.01"
-                    value={globalTime}
-                    onChange={handleSeekDrag}
-                    onMouseUp={handleSeekCommit}
-                    onTouchEnd={handleSeekCommit}
-                    style={{ width: '100%' }}
-                />
-                <div
-                    style={{
-                        textAlign: 'right',
-                        fontSize: '0.75rem',
-                        marginTop: '4px',
-                        color: '#f2f3f5',
-                    }}
-                >
-                    {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
-                </div>
-            </div>
+      {/* Canvas 영역 */}
+      <div
+        style={{
+          flex: '0 1 auto',
+          height: 'calc(100% - 40px - 40px - 40px)', // 상단버튼(40) + 버튼영역(40) + 바(40) 제외
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '1rem',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '800px',   // ← 두 번째 코드에서 가져온 maxWidth
+            minWidth: '440px',   // ← 두 번째 코드에서 가져온 minWidth
+            aspectRatio: '16 / 9',
+            backgroundColor: 'black',
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            width={1280}
+            height={720}
+            style={{
+              width: '100%',
+              height: '100%',
+              minWidth: '640px',
+              minHeight: '360px',
+              maxWidth: '1280px',
+              maxHeight: '720px',
+              display: 'block',
+              border: '1px solid #ccc',
+            }}
+          />
         </div>
-    );
+      </div>
 
+      {/* 재생/정지 버튼 영역 */}
+      <div
+        style={{
+          height: '40px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '1rem',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+        }}
+      >
+        <button onClick={handlePlay}>▶️ 재생</button>
+        <button onClick={handleStop}>⏹ 정지</button>
+      </div>
 
-
-
+      {/* 재생바 (맨 아래) */}
+      <div
+        style={{
+          height: '40px',
+          padding: '0 1rem',
+          boxSizing: 'border-box',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+          marginBottom: '800px', // ← 두 번째 코드에서 가져온 marginBottom
+        }}
+      >
+        <input
+          type="range"
+          min={0}
+          max={totalDuration}
+          step="0.01"
+          value={globalTime}
+          onChange={handleSeekDrag}
+          onMouseUp={handleSeekCommit}
+          onTouchEnd={handleSeekCommit}
+          style={{ width: '100%' }}
+        />
+        <div
+          style={{
+            textAlign: 'right',
+            fontSize: '0.75rem',
+            marginTop: '4px',
+            color: '#f2f3f5',
+          }}
+        >
+          {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default MergeAndPreviewPage;
+
