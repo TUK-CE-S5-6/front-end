@@ -65,7 +65,7 @@ function splitSubtitleBySentenceWeight(text, startTime, duration) {
     return sentences.map((s, i) => ({
         start: startTime + perSentence * i,
         end: startTime + perSentence * (i + 1),
-        lines: wrapTextByCharCount(s, 70), // ⬅️ 여기에 적용
+        lines: wrapTextByCharCount(s, ), // ⬅️ 여기에 적용
     }));
 }
 
@@ -100,43 +100,45 @@ const MergeAndPreviewPage = () => {
     }, [videoTracks, audioTracks]);
 
     useEffect(() => {
-        // 비디오 요소 미리 생성
-        videoTracks.forEach((group) => {
-            group.tracks.forEach((track) => {
-                const url = track.url.startsWith('http')
-                    ? track.url
-                    : baseUrl + track.url;
-                if (!videoElementsRef.current[track.id]) {
-                    const v = document.createElement('video');
-                    v.crossOrigin = 'anonymous';
-                    v.preload = 'auto';
-                    v.src = url;
-                    v.volume = group.volume / 100;
-                    videoElementsRef.current[track.id] = v;
-                }
-            });
-        });
-        // 오디오 요소 생성
-        audioTracks.forEach((group) => {
-            group.tracks.forEach((track) => {
-                const url = track.url.startsWith('http')
-                    ? track.url
-                    : baseUrl + track.url;
-                if (!audioElementsRef.current[track.id]) {
-                    const a = document.createElement('audio');
-                    a.preload = 'auto';
-                    a.src = url;
-                    a.volume = group.volume / 100;
-                    audioElementsRef.current[track.id] = a;
-                }
-            });
-        });
-        return () => {
-            // clean up
-            timeoutsRef.current.forEach(clearTimeout);
-            cancelAnimationFrame(animationFrameRef.current);
-        };
-    }, [videoTracks, audioTracks]);
+  // 비디오
+  videoTracks.forEach((group) => {
+    group.tracks.forEach((track) => {
+      const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
+      const existing = videoElementsRef.current[track.id];
+
+      if (!existing || existing.src !== url) {
+        const v = document.createElement('video');
+        v.crossOrigin = 'anonymous';
+        v.preload = 'auto';
+        v.src = url;
+        v.volume = group.volume / 100;
+        videoElementsRef.current[track.id] = v;
+      }
+    });
+  });
+
+  // 오디오
+  audioTracks.forEach((group) => {
+    group.tracks.forEach((track) => {
+      const url = track.url.startsWith('http') ? track.url : baseUrl + track.url;
+      const existing = audioElementsRef.current[track.id];
+
+      if (!existing || existing.src !== url) {
+        const a = document.createElement('audio');
+        a.preload = 'auto';
+        a.src = url;
+        a.volume = group.volume / 100;
+        audioElementsRef.current[track.id] = a;
+      }
+    });
+  });
+
+  return () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    cancelAnimationFrame(animationFrameRef.current);
+  };
+}, [videoTracks, audioTracks]);
+
 
     // 슬라이더 이동 (Seek)
     const handleSeek = (e) => {
