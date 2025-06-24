@@ -15,7 +15,7 @@ const TTSGenerator = () => {
   useEffect(() => {
     // 페이지 로드 시 서버에서 보이스 모델 목록 불러오기
     axios
-      .get('http://localhost:8001/voice-models')
+      .get('http://175.116.3.178:8001/voice-models')
       .then((res) => {
         setVoiceOptions(
           res.data.map((vm) => ({
@@ -62,7 +62,7 @@ const TTSGenerator = () => {
       formData.append('user_id', userId);
 
       const response = await axios.post(
-        'http://localhost:8001/generate-tts',
+        'http://175.116.3.178:8001/generate-tts',
         formData
       );
 

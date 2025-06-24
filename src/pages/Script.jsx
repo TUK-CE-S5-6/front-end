@@ -53,7 +53,7 @@ const Script = () => {
     formData.append('text', edited.originalText); // ← 사용자가 수정한 텍스트
 
     try {
-      const res = await fetch('http://localhost:8001/edit-tts', {
+      const res = await fetch('http://175.116.3.178:8001/edit-tts', {
         method: 'POST',
         body: formData,
       });
