@@ -60,57 +60,59 @@ function splitSubtitleByLineCount(ctx, text, startTime, duration, maxWidth, maxL
 
 // 자막 분할 유틸 (기존 코드 그대로 복원)
 function splitSubtitleBySentenceWeight(text, startTime, duration) {
-        const sentences = text.split(/(?<=[.?!])\s+/);
-        const perSentence = duration / sentences.length;
-        return sentences.map((s, i) => {
-            // wrapTextByLangBreak: 영문 80/70자, CJK(한글·일본·중국어) 40/35자 기준
-            const lines = wrapTextByLangBreak(s, 80, 70);
-            return {
-                start: startTime + perSentence * i,
-                end:   startTime + perSentence * (i + 1),
-                lines,
-           };
-        });
-    }
+    const sentences = text.split(/(?<=[.?!])\s+/);
+    const perSentence = duration / sentences.length;
+    return sentences.map((s, i) => {
+        // wrapTextByLangBreak: 영문 80/70자, CJK(한글·일본·중국어) 40/35자 기준
+        const lines = wrapTextByLangBreak(s, 80, 70);
+        return {
+            start: startTime + perSentence * i,
+            end: startTime + perSentence * (i + 1),
+            lines,
+        };
+    });
+}
 
 function wrapTextByLangBreak(text, fullLimit = 90, fullSoft = 80) {
     const lines = [];
     let remaining = text.trim();
-  
+
     // CJK(중국어·일본어) + 한글 유니코드 범위
     const CJK_HANGUL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF]/;
     const isCJK = (str) => CJK_HANGUL_REGEX.test(str);
-  
+
     while (remaining.length > 0) {
-      // 남은 길이가 풀 리밋 이하면 그대로
-      // 하지만 CJK 텍스트라면 절반 리밋 기준
-      const useCJK = isCJK(remaining);
-      const maxChars    = useCJK ? Math.floor(fullLimit  / 2) : fullLimit;
-      const softLimit   = useCJK ? Math.floor(fullSoft   / 2) : fullSoft;
-      const slice       = remaining.slice(0, maxChars);
-  
-      // softLimit 이후 첫 공백/구두점 찾기
-      const nextBreakChars = /[ \u3000-\u303F\.\,，、。…\?\!！；：]/;
-      let breakPos = -1;
-      for (let i = softLimit; i < slice.length; i++) {
-        if (nextBreakChars.test(slice[i])) {
-          breakPos = i + 1;
-          break;
+        // 남은 길이가 풀 리밋 이하면 그대로
+        // 하지만 CJK 텍스트라면 절반 리밋 기준
+        const useCJK = isCJK(remaining);
+        const maxChars = useCJK ? Math.floor(fullLimit / 2) : fullLimit;
+        const softLimit = useCJK ? Math.floor(fullSoft / 2) : fullSoft;
+        const slice = remaining.slice(0, maxChars);
+
+        // softLimit 이후 첫 공백/구두점 찾기
+        const nextBreakChars = /[ \u3000-\u303F\.\,，、。…\?\!！；：]/;
+        let breakPos = -1;
+        for (let i = softLimit; i < slice.length; i++) {
+            if (nextBreakChars.test(slice[i])) {
+                breakPos = i + 1;
+                break;
+            }
         }
-      }
-      if (breakPos < 0) breakPos = maxChars;
-  
-      // 한 줄 잘라내기
-      lines.push(slice.slice(0, breakPos).trim());
-      remaining = remaining.slice(breakPos).trim();
+        if (breakPos < 0) breakPos = maxChars;
+
+        // 한 줄 잘라내기
+        lines.push(slice.slice(0, breakPos).trim());
+        remaining = remaining.slice(breakPos).trim();
     }
-  
+
     return lines;
-  }
+}
 
 const baseUrl = 'http://175.116.3.178:8000/';
 
 const MergeAndPreviewPage = () => {
+  const togglePlay = () => setIsPlaying((prev) => !prev);
+
     const videoTracks = useSelector((state) => state.videoTracks);
     const audioTracks = useSelector((state) => state.audioTracks);
 
@@ -468,115 +470,90 @@ const MergeAndPreviewPage = () => {
 
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
-    return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* 예시: 상단 바 */}
-<div className="h-10 px-4 flex items-center justify-end flex-shrink-0 bg-[#313338]">
-  <button
-    onClick={handleMergeClick}
-    className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1d1d38] transition-colors"
-  >
-    💾 합성 및 다운로드
-  </button>
-</div>
 
-      {/* Canvas 영역 */}
-      <div
-        style={{
-          flex: '0 1 auto',
-          height: 'calc(100% - 40px - 40px - 40px)', // 상단버튼(40) + 버튼영역(40) + 바(40) 제외
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '1rem',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '800px',   // ← 두 번째 코드에서 가져온 maxWidth
-            minWidth: '440px',   // ← 두 번째 코드에서 가져온 minWidth
-            aspectRatio: '16 / 9',
-            backgroundColor: 'black',
-          }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={1280}
-            height={720}
-            style={{
-              width: '100%',
-              height: '100%',
-              minWidth: '640px',
-              minHeight: '360px',
-              maxWidth: '1280px',
-              maxHeight: '720px',
-              display: 'block',
-              border: '1px solid #ccc',
-            }}
-          />
-        </div>
-      </div>
 
-      {/* 재생/정지 버튼 영역 */}
-      <div
-        style={{
-          height: '40px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '1rem',
-          flexShrink: 0,
-          backgroundColor: '#313338',
-        }}
-      >
-        <button onClick={handlePlay}>▶️ 재생</button>
-        <button onClick={handleStop}>⏹ 정지</button>
-      </div>
 
-      {/* 재생바 (맨 아래) */}
-      <div
-        style={{
-          height: '40px',
-          padding: '0 1rem',
-          boxSizing: 'border-box',
-          flexShrink: 0,
-          backgroundColor: '#313338',
-          marginBottom: '800px', // ← 두 번째 코드에서 가져온 marginBottom
-        }}
-      >
-        <input
-          type="range"
-          min={0}
-          max={totalDuration}
-          step="0.01"
-          value={globalTime}
-          onChange={handleSeekDrag}
-          onMouseUp={handleSeekCommit}
-          onTouchEnd={handleSeekCommit}
-          style={{ width: '100%' }}
-        />
-        <div
-          style={{
-            textAlign: 'right',
-            fontSize: '0.75rem',
-            marginTop: '4px',
-            color: '#f2f3f5',
-          }}
-        >
-          {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
-        </div>
-      </div>
+
+
+    
+
+  return (
+    <div className="relative flex min-h-screen flex-col bg-[#131320] overflow-x-hidden">
+      {/* 상단 바 */}
+      <header className="h-10 px-4 flex items-center justify-end shrink-0 bg-[#131320]">
+        <button className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1d1d38] transition-colors">
+          💾 합성 및 다운로드
+        </button>
+      </header>
+
+      {/* 메인 컨텐츠 래퍼 */}
+      <main className="flex h-full grow flex-col items-center py-5 px-6">
+        <section className="flex flex-col max-w-[920px] w-full">
+          {/* ▶︎ 썸네일 / 플레이 영역 */}
+          <div className="p-4">
+            <div
+              className="relative flex items-center justify-center bg-[#5e5eed] bg-cover bg-center aspect-video rounded-lg p-4"
+              style={{
+                backgroundImage:
+                  'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZADMTkFuk7d7ejXf8htJeWg6WQ1EYi5sIb0wcd4_fI95veGeXjqZaTRbuRfpaQjpAGzDGBXFe2GnecJMM07VDCIn_VoHmBb8yGVyF2AIgQMe380kgg3R8Im02n4HS-uQXZC0fjKRmzRdliLPf02nftmAjr4nAIMGb5USnVXnqXjhjrZ2yyTl7e8s7Rv_I2e0LQrck3_CPeYxiYfjoLssXBGeEy3Bwu3FdpGDqoT3Z6NcyooB8gm6bQhFlsk05tz2qep88GH8-GB6K")',
+              }}
+            >
+              {/* 재생 / 정지 토글 버튼 */}
+              <button
+                onClick={togglePlay}
+                aria-label={isPlaying ? '정지' : '재생'}
+                className="flex items-center justify-center w-16 h-16 rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 text-white transition-colors"
+              >
+                {isPlaying ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+                    <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+                    <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* 진행 바 (목업) */}
+              <div className="absolute inset-x-0 bottom-0 px-4 py-3">
+                <div className="flex h-4 items-center">
+                  <div className="flex-1 h-1 bg-white rounded-full" />
+                  <div className="relative">
+                    <div className="absolute -left-2 -top-2 w-4 h-4 bg-white rounded-full" />
+                  </div>
+                  <div className="flex-1 h-1 bg-white/40 rounded-full" />
+                </div>
+                <div className="flex items-center justify-between text-white text-xs font-medium tracking-[0.015em]">
+                  <span>0:37</span>
+                  <span>2:23</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ⏪⏩ 컨트롤 버튼 */}
+          <div className="flex justify-center">
+            <div className="flex flex-wrap gap-3 max-w-[480px] w-full px-4 py-3 justify-center">
+              <button className="flex min-w-[84px] h-10 items-center justify-center rounded-lg px-4 bg-[#242447] hover:bg-[#1d1d38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#242447]/60 text-white text-sm font-bold grow transition-colors">
+                Rewind&nbsp;5s
+              </button>
+              <button className="flex min-w-[84px] h-10 items-center justify-center rounded-lg px-4 bg-[#242447] hover:bg-[#1d1d38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#242447]/60 text-white text-sm font-bold grow transition-colors">
+                Forward&nbsp;5s
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* 하단 컨트롤 바 */}
+      <footer className="h-10 px-4 flex items-center justify-between shrink-0 bg-[#131320] text-xs text-[#f2f3f5]">
+        <span>0:00 / 0:00</span>
+      </footer>
     </div>
   );
 };
+
+
 
 export default MergeAndPreviewPage;

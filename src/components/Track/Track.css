@@ -163,4 +163,17 @@
   button:hover {
     background-color: #677bc4;
   }
-  
+  /* 스크롤은 동작하지만 스크롤바는 보이지 않게 */
+.hide-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE & Edge */
+
+  /* WebKit 기반 브라우저용 (Chrome, Safari 등) */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* 스크롤 동작 자체를 완전히 막음 */
+.no-scroll {
+  overflow: hidden !important;
+}

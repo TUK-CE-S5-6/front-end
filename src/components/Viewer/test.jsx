@@ -468,111 +468,69 @@ const MergeAndPreviewPage = () => {
 
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
-    return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* 예시: 상단 바 */}
-<div className="h-10 px-4 flex items-center justify-end flex-shrink-0 bg-[#313338]">
-  <button
-    onClick={handleMergeClick}
-    className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1d1d38] transition-colors"
-  >
-    💾 합성 및 다운로드
-  </button>
-</div>
 
-      {/* Canvas 영역 */}
-      <div
-        style={{
-          flex: '0 1 auto',
-          height: 'calc(100% - 40px - 40px - 40px)', // 상단버튼(40) + 버튼영역(40) + 바(40) 제외
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '1rem',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '800px',   // ← 두 번째 코드에서 가져온 maxWidth
-            minWidth: '440px',   // ← 두 번째 코드에서 가져온 minWidth
-            aspectRatio: '16 / 9',
-            backgroundColor: 'black',
-          }}
-        >
+  const togglePlay = () => (isPlaying ? handleStop() : handlePlay());
+
+    
+      return (
+    <div className="flex flex-col h-full box-border bg-[#131320] text-white">
+      {/* 상단 바 */}
+      <div className="h-10 px-4 flex items-center justify-end shrink-0 bg-[#131320]">
+        <button onClick={handleMergeClick} className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors">
+          💾 합성 및 다운로드
+        </button>
+      </div>
+
+      {/* Canvas + Hover 토글 버튼 + 하단 컨트롤 오버레이 */}
+      <div className="flex-1 flex justify-center items-center p-4 box-border">
+        <div className="group relative w-full max-w-[800px] min-w-[440px] aspect-video bg-black">
           <canvas
             ref={canvasRef}
             width={1280}
             height={720}
-            style={{
-              width: '100%',
-              height: '100%',
-              minWidth: '640px',
-              minHeight: '360px',
-              maxWidth: '1280px',
-              maxHeight: '720px',
-              display: 'block',
-              border: '1px solid #ccc',
-            }}
+            className="w-full h-full min-w-[640px] min-h-[360px] max-w-[1280px] max-h-[720px] block border border-[#ccc]"
           />
-        </div>
-      </div>
 
-      {/* 재생/정지 버튼 영역 */}
-      <div
-        style={{
-          height: '40px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '1rem',
-          flexShrink: 0,
-          backgroundColor: '#313338',
-        }}
-      >
-        <button onClick={handlePlay}>▶️ 재생</button>
-        <button onClick={handleStop}>⏹ 정지</button>
-      </div>
+          {/* 중앙 ▶ / ■ 토글 */}
+          <button
+            onClick={togglePlay}
+            aria-label={isPlaying ? '정지' : '재생'}
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute inset-0 m-auto flex items-center justify-center w-16 h-16 rounded-full bg-[#242447]/80 hover:bg-[#242447]/90"
+          >
+            {isPlaying ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z"/></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z"/></svg>
+            )}
+          </button>
 
-      {/* 재생바 (맨 아래) */}
-      <div
-        style={{
-          height: '40px',
-          padding: '0 1rem',
-          boxSizing: 'border-box',
-          flexShrink: 0,
-          backgroundColor: '#313338',
-          marginBottom: '800px', // ← 두 번째 코드에서 가져온 marginBottom
-        }}
-      >
-        <input
-          type="range"
-          min={0}
-          max={totalDuration}
-          step="0.01"
-          value={globalTime}
-          onChange={handleSeekDrag}
-          onMouseUp={handleSeekCommit}
-          onTouchEnd={handleSeekCommit}
-          style={{ width: '100%' }}
-        />
-        <div
-          style={{
-            textAlign: 'right',
-            fontSize: '0.75rem',
-            marginTop: '4px',
-            color: '#f2f3f5',
-          }}
-        >
-          {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+          {/* ▼▼ overlay: 시킹바 (hover 시 노출) ▼▼ */}
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200">
+            {/* ⇩ 그라데이션 배경 + 슬라이더 */}
+            <div className="relative h-14 px-4 box-border flex flex-col justify-end">
+              {/* 검은색 투명 그라데이션 */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
+
+              {/* 슬라이더 */}
+              <input
+                type="range"
+                min={0}
+                max={totalDuration}
+                step="0.01"
+                value={globalTime}
+                onChange={handleSeekDrag}
+                onMouseUp={handleSeekCommit}
+                onTouchEnd={handleSeekCommit}
+                className="relative w-full accent-white mb-0.5" /* 흰색 진행선/thumb */
+              />
+
+              {/* 시간 표시 – 위로 2px 올림 */}
+              <div className="relative text-right text-xs -mt-0.5 text-[#f2f3f5]">
+                {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+              </div>
+            </div>
+          </div>
+          {/* ▲▲ overlay 끝 ▲▲ */}
         </div>
       </div>
     </div>
