@@ -1,6 +1,7 @@
 // store.js
 import { createStore } from 'redux';
-
+export const RESET_USER_STATE = 'RESET_USER_STATE';
+export const resetUserState = () => ({ type: RESET_USER_STATE });
 const initialState = {
   audioTracks: [
     // 초기 오디오 그룹 배열 (없으면 빈 배열)
@@ -39,7 +40,11 @@ const computeTimelineDuration = (state) => {
 };
 
 const reducer = (state = initialState, action) => {
-  let newState;
+  // RESET_USER_STATE는 무조건 초기 상태로 되돌립니다.
+  if (action.type === RESET_USER_STATE) {
+    return { ...initialState };
+  }
+    let newState;
   switch (action.type) {
     case 'SET_PLAYING':
       newState = {

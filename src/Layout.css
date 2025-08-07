@@ -1,17 +1,25 @@
-.container {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* 상단을 두 열로 분할 */
-  /* grid-template-rows는 App.jsx에서 인라인 스타일로 설정 */
-  height: 100vh;
+/* 변경 */
+.container{
+  display:grid;
+  grid-template-columns:auto 1fr;      /* 왼쪽 고정, 오른쪽 전부 사용 */
+  width:100vw;                         /* (보너스) 혹시 부모가 좁아도 전체 폭 */
+  height:100vh;
+  overflow:hidden;
 }
 
-.topLeft {
-  overflow-y: auto; /* 세로 스크롤바 활성화 */
-  /* 필요하다면 max-height 또는 height도 지정 */
+.topLeft{
+  width:860px;            /* JS 상태값이라면 inline style 로 계속 갱신 */
+  flex:none;
+  overflow:hidden;
 }
 
-.topRight {
+.topRight{
+  flex:1 1 0;             /* grow=1, shrink=1, basis=0  → 자유롭게 늘고 줄기 */
+  min-width:0;            /* 내용이 길어도 flex 줄바꿈 방해 안되게 */
+  background:#1e1f22;
+  overflow:auto;
 }
+
 
 .bottom {
   display: flex;

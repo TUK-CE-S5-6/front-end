@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import store from '../../store';
 
+
 function wrapText(ctx, text, maxWidth) {
     const words = text.split(' ');
     const lines = [];
@@ -60,53 +61,53 @@ function splitSubtitleByLineCount(ctx, text, startTime, duration, maxWidth, maxL
 
 // 자막 분할 유틸 (기존 코드 그대로 복원)
 function splitSubtitleBySentenceWeight(text, startTime, duration) {
-        const sentences = text.split(/(?<=[.?!])\s+/);
-        const perSentence = duration / sentences.length;
-        return sentences.map((s, i) => {
-            // wrapTextByLangBreak: 영문 80/70자, CJK(한글·일본·중국어) 40/35자 기준
-            const lines = wrapTextByLangBreak(s, 80, 70);
-            return {
-                start: startTime + perSentence * i,
-                end:   startTime + perSentence * (i + 1),
-                lines,
-           };
-        });
-    }
+    const sentences = text.split(/(?<=[.?!])\s+/);
+    const perSentence = duration / sentences.length;
+    return sentences.map((s, i) => {
+        // wrapTextByLangBreak: 영문 80/70자, CJK(한글·일본·중국어) 40/35자 기준
+        const lines = wrapTextByLangBreak(s, 80, 70);
+        return {
+            start: startTime + perSentence * i,
+            end: startTime + perSentence * (i + 1),
+            lines,
+        };
+    });
+}
 
 function wrapTextByLangBreak(text, fullLimit = 90, fullSoft = 80) {
     const lines = [];
     let remaining = text.trim();
-  
+
     // CJK(중국어·일본어) + 한글 유니코드 범위
     const CJK_HANGUL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3040-\u30FF\uAC00-\uD7AF]/;
     const isCJK = (str) => CJK_HANGUL_REGEX.test(str);
-  
+
     while (remaining.length > 0) {
-      // 남은 길이가 풀 리밋 이하면 그대로
-      // 하지만 CJK 텍스트라면 절반 리밋 기준
-      const useCJK = isCJK(remaining);
-      const maxChars    = useCJK ? Math.floor(fullLimit  / 2) : fullLimit;
-      const softLimit   = useCJK ? Math.floor(fullSoft   / 2) : fullSoft;
-      const slice       = remaining.slice(0, maxChars);
-  
-      // softLimit 이후 첫 공백/구두점 찾기
-      const nextBreakChars = /[ \u3000-\u303F\.\,，、。…\?\!！；：]/;
-      let breakPos = -1;
-      for (let i = softLimit; i < slice.length; i++) {
-        if (nextBreakChars.test(slice[i])) {
-          breakPos = i + 1;
-          break;
+        // 남은 길이가 풀 리밋 이하면 그대로
+        // 하지만 CJK 텍스트라면 절반 리밋 기준
+        const useCJK = isCJK(remaining);
+        const maxChars = useCJK ? Math.floor(fullLimit / 2) : fullLimit;
+        const softLimit = useCJK ? Math.floor(fullSoft / 2) : fullSoft;
+        const slice = remaining.slice(0, maxChars);
+
+        // softLimit 이후 첫 공백/구두점 찾기
+        const nextBreakChars = /[ \u3000-\u303F\.\,，、。…\?\!！；：]/;
+        let breakPos = -1;
+        for (let i = softLimit; i < slice.length; i++) {
+            if (nextBreakChars.test(slice[i])) {
+                breakPos = i + 1;
+                break;
+            }
         }
-      }
-      if (breakPos < 0) breakPos = maxChars;
-  
-      // 한 줄 잘라내기
-      lines.push(slice.slice(0, breakPos).trim());
-      remaining = remaining.slice(breakPos).trim();
+        if (breakPos < 0) breakPos = maxChars;
+
+        // 한 줄 잘라내기
+        lines.push(slice.slice(0, breakPos).trim());
+        remaining = remaining.slice(breakPos).trim();
     }
-  
+
     return lines;
-  }
+}
 
 const baseUrl = 'http://175.116.3.178:8000/';
 
@@ -469,49 +470,39 @@ const MergeAndPreviewPage = () => {
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
 
-  const togglePlay = () => (isPlaying ? handleStop() : handlePlay());
+    const togglePlay = () => (isPlaying ? handleStop() : handlePlay());
+    const percent = totalDuration > 0
+        ? (globalTime / totalDuration) * 100
+        : 0;
 
-    
-      return (
-    <div className="flex flex-col h-full box-border bg-[#131320] text-white">
-      {/* 상단 바 */}
-      <div className="h-10 px-4 flex items-center justify-end shrink-0 bg-[#131320]">
-        <button onClick={handleMergeClick} className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors">
-          💾 합성 및 다운로드
-        </button>
-      </div>
+    return (
 
-      {/* Canvas + Hover 토글 버튼 + 하단 컨트롤 오버레이 */}
-      <div className="flex-1 flex justify-center items-center p-4 box-border">
-        <div className="group relative w-full max-w-[800px] min-w-[440px] aspect-video bg-black">
-          <canvas
-            ref={canvasRef}
-            width={1280}
-            height={720}
-            className="w-full h-full min-w-[640px] min-h-[360px] max-w-[1280px] max-h-[720px] block border border-[#ccc]"
-          />
 
-          {/* 중앙 ▶ / ■ 토글 */}
-          <button
-            onClick={togglePlay}
-            aria-label={isPlaying ? '정지' : '재생'}
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute inset-0 m-auto flex items-center justify-center w-16 h-16 rounded-full bg-[#242447]/80 hover:bg-[#242447]/90"
-          >
-            {isPlaying ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z"/></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z"/></svg>
-            )}
-          </button>
+        <div className="flex flex-col h-full box-border bg-[#15151e] text-white">
+            {/* 상단 바 */}
+            <div className="h-10 px-4 flex items-center justify-end shrink-0 bg-[#15151e]">
+                <button onClick={handleMergeClick} className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors">
+                    💾 합성 및 다운로드
+                </button>
+            </div>
 
-          {/* ▼▼ overlay: 시킹바 (hover 시 노출) ▼▼ */}
-          <div className="absolute inset-x-0 bottom-0 pointer-events-none opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200">
-            {/* ⇩ 그라데이션 배경 + 슬라이더 */}
-            <div className="relative h-14 px-4 box-border flex flex-col justify-end">
-              {/* 검은색 투명 그라데이션 */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
+            {/* Canvas + Hover 토글 버튼 + 하단 컨트롤 오버레이 */}
+            <div className="relative flex-1 group bg-black">
+                <canvas
+                    ref={canvasRef}
+                    width={1280}
+                    height={720}
+                    className="absolute inset-0 w-full h-full border border-[#15151e]"
+                />
 
-              {/* 슬라이더 */}
+
+            </div>
+
+
+            {/* 영상 아래 고정된 재생바 컨트롤 */}
+            <div >
+
+                {/* 슬라이더 */}
               <input
                 type="range"
                 min={0}
@@ -524,17 +515,40 @@ const MergeAndPreviewPage = () => {
                 className="relative w-full accent-white mb-0.5" /* 흰색 진행선/thumb */
               />
 
-              {/* 시간 표시 – 위로 2px 올림 */}
-              <div className="relative text-right text-xs -mt-0.5 text-[#f2f3f5]">
-                {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
-              </div>
+                <div className="flex items-center justify-between -mt-1.5">
+
+                    <button
+                        onClick={togglePlay}
+                        aria-label={isPlaying ? '정지' : '재생'}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-0.5 -mt-0.5 mb-0.5"
+                    >
+                         {isPlaying ? (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-6 h-6 text-white"
+                                viewBox="0 0 256 256"
+                                fill="currentColor"
+                            >
+                                <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
+                            </svg>
+                        ) : (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-6 h-6 text-white"
+                                viewBox="0 0 256 256"
+                                fill="currentColor"
+                            >
+                                <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
+                            </svg>
+                        )}
+                    </button>
+                    <div className="text-xs text-[#f2f3f5] pr-2">
+                        {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+                    </div>
+                </div>
             </div>
-          </div>
-          {/* ▲▲ overlay 끝 ▲▲ */}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default MergeAndPreviewPage;

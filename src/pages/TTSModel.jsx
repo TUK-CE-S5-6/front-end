@@ -4,6 +4,7 @@ function CreateVoiceCloneForm() {
   // 폼 상태값
   const [name, setName] = useState('');
   const [files, setFiles] = useState([]);
+  const [image, setImage] = useState(null); // ← NEW
   const [removeBackgroundNoise, setRemoveBackgroundNoise] = useState(false);
   const [gender, setGender] = useState('male');
   const [language, setLanguage] = useState('ko');
@@ -17,6 +18,13 @@ function CreateVoiceCloneForm() {
     setFiles(e.target.files);
   };
 
+  // 이미지 변경 핸들러 ← NEW
+  const handleImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setImage(e.target.files[0]);
+    }
+  };
+
   // 폼 제출 핸들러
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +33,9 @@ function CreateVoiceCloneForm() {
     formData.append('name', name);
     for (let i = 0; i < files.length; i++) {
       formData.append('files', files[i]);
+    }
+    if (image) {
+      formData.append('image', image); // ← NEW
     }
     formData.append('remove_background_noise', removeBackgroundNoise);
     formData.append('description', null);
@@ -57,7 +68,7 @@ function CreateVoiceCloneForm() {
     >
       <h1 style={{ color: '#fff' }}>🧬 보이스 모델 생성</h1>
       <form onSubmit={handleSubmit}>
-        {/* 모델 이름 (너비 1/3) */}
+        {/* 모델 이름 */}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ color: '#ddd' }}>모델 이름 (필수)</label>
           <br />
@@ -89,6 +100,18 @@ function CreateVoiceCloneForm() {
           />
         </div>
 
+        {/* 대표 이미지 업로드 ← NEW */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ color: '#ddd' }}>대표 이미지 업로드 (선택)</label>
+          <br />
+          <input type="file" accept="image/*" onChange={handleImageChange} />
+          {image && (
+            <div style={{ marginTop: '0.5rem', color: '#aaa' }}>
+              선택된 이미지: {image.name}
+            </div>
+          )}
+        </div>
+
         {/* 배경 소음 제거 */}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ color: '#ddd' }}>
@@ -101,7 +124,7 @@ function CreateVoiceCloneForm() {
           </label>
         </div>
 
-        {/* 성별 + 언어 가로 배치 */}
+        {/* 성별 + 언어 */}
         <div
           style={{
             display: 'flex',
@@ -145,14 +168,14 @@ function CreateVoiceCloneForm() {
               }}
             >
               <option value="ko">한국어</option>
-              <option value="en">English(영어)</option>
-              <option value="ja">日本語(일본어)</option>
-              <option value="zh">中文(중국어)</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="zh">中文</option>
             </select>
           </div>
         </div>
 
-        {/* 제출 버튼 아래 배치 */}
+        {/* 제출 버튼 */}
         <div>
           <button
             type="submit"

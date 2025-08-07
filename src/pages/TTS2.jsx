@@ -22,6 +22,7 @@ const TTSGenerator = () => {
             id: vm.db_id,
             label: vm.name,
             value: vm.voice_id,
+            imageUrl: vm.image_url, // ← NEW: 이미지 URL 추가
           }))
         );
       })
@@ -99,13 +100,27 @@ const TTSGenerator = () => {
             marginBottom: '10px',
           }}
         >
-          <span>{voice.label}</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {/* ← NEW: 1:1 비율, 텍스트 크기(1em)에 맞춘 썸네일 */}
+            <img
+              src={`http://175.116.3.178:8001${voice.imageUrl}`}
+              alt={`${voice.label} thumbnail`}
+              style={{
+                width: '4em',
+                height: '4em',
+                objectFit: 'cover',
+                borderRadius: '0.125em',
+                marginRight: '0.5em',
+              }}
+            />
+            <span>{voice.label}</span>
+          </div>
           <button
             onClick={() => openModal(voice)}
             style={{
               padding: '6px 12px',
               borderRadius: '4px',
-              border: '1px solid #000000',
+              border: '1px solid #000',
               backgroundColor: '#007bff',
               color: '#fff',
               cursor: 'pointer',

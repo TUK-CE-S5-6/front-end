@@ -355,181 +355,153 @@ const UserFileManager = () => {
 
   return (
     <div
-      style={{
-        padding: 20,
-        maxWidth: 800,
-        margin: '0 auto',
-        height: '100%', // ✅ 부모 영역을 꽉 채움
-        overflow: 'hidden', // ✅ 전체 스크롤 막기
-        boxSizing: 'border-box', // ✅ 패딩 포함한 전체 높이 계산
-        paddingBottom: '200px', // [추가] 아래에 200px 빈 공간 확보
-
-      }}
+      className="relative flex min-h-screen flex-col bg-[#15151e] text-white overflow-x-hidden"
+      style={{ fontFamily: '"Plus Jakarta Sans","Noto Sans",sans-serif' }}
     >
-      <h1>📁파일 관리</h1>
+      {/* ─ 헤더 ───────────────────────────────── */}
+      <header className="flex items-center justify-between border-b border-[#2c2c35] px-10 py-3">
 
-      {/* 검색 + 필터 + 업로드 */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          marginBottom: 16,
-        }}
-      >
-        <input
-          placeholder="검색..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: 1, padding: 4 }}
-        />
-        <div style={{ position: 'relative' }}>
-          <button
-            ref={filterBtnRef}
-            onClick={() => setShowFilterMenu((m) => !m)}
-            className="upload-button"
-          >
-            필터 ▾
-          </button>
-          {showFilterMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%', // 버튼 바로 아래
-                right: 0,
-                marginTop: 4,
-                width: menuWidth, // 버튼과 동일 너비
-                background: '#fff',
-                border: '1px solid #000',
-                borderRadius: 4,
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                zIndex: 1000,
-              }}
-            >
-              {filterOptions.map((opt, i) => (
-                <button
-                  key={opt.value}
-                  className="upload-button" // 토글 버튼과 동일 스타일
-                  onClick={() => {
-                    setFilterType(opt.value);
-                    setShowFilterMenu(false);
-                  }}
-                  style={{
-                    width: '100%',
-                    borderRadius: 0, // 모서리 둥글기 제거
-                    borderBottom:
-                      i < filterOptions.length - 1
-                        ? '1px solid rgba(255,255,255,0.5)' // 마지막 제외 구분선
-                        : 'none',
-                    textAlign: 'left',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+
+        {/* 오른쪽: 검색·필터·업로드 */}
+        <div className="flex gap-3">
+          {/* 검색 */}
+          <label className="flex h-10 w-60">
+            <div className="flex flex-1 items-stretch rounded-xl bg-[#2c2c35]">
+              <div className="flex items-center px-3 text-[#a2a2b3]">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M229.66 218.34 179.6 168.28a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z" />
+                </svg>
+              </div>
+              <input
+                placeholder="검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1 rounded-r-xl bg-[#2c2c35] px-2 placeholder-[#a2a2b3] focus:outline-none"
+              />
             </div>
-          )}
-        </div>
-        <button
-          className="upload-button"
-          onClick={() => fileInputRef.current.click()}
-        >
-          업로드
-        </button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-      </div>
+          </label>
 
-      {/* 파일 목록: 고정 크기 그리드 */}
-      {filtered.length === 0 ? (
-        <p>파일 없음</p>
-      ) : (
-        <div className="file-list-scroll">
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, 150px)',
-              gap: 8,
-              justifyContent: 'center',
-            }}
+          {/* 필터 토글 */}
+          <div className="relative">
+            <button
+              ref={filterBtnRef}
+              onClick={() => setShowFilterMenu((m) => !m)}
+              className="h-10 rounded-xl bg-[#2b2b36] hover:bg-[#21212b] px-4 text-sm font-bold transition-colors"
+            >
+              필터 ▾
+            </button>
+
+            {/* 드롭다운 */}
+            {showFilterMenu && (
+              <ul
+                className="absolute right-0 mt-1 w-32 overflow-hidden rounded-xl border border-[#2c2c35] bg-[#0c0c26] text-sm"
+              >
+                {filterOptions.map((opt) => (
+                  <li key={opt.value}>
+                    <button
+                      onClick={() => {
+                        setFilterType(opt.value);
+                        setShowFilterMenu(false);
+                      }}
+                      className="block w-full px-4 py-2 text-left hover:bg-[#2c2c35]"
+                    >
+                      {opt.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* 업로드 */}
+          <button
+            className="h-10  bg-[#2b2b36] hover:bg-[#21212b] rounded-xl bg-[#0c0c26] px-4 text-sm font-bold"
+            onClick={() => fileInputRef.current.click()}
           >
-            {filtered.map((f, i) => (
+            업로드
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      </header>
+
+
+
+
+      {/* ─ 콘텐츠 ─ */}
+      <main className="flex flex-none justify-center px-10 py-6">
+        {filtered.length === 0 ? (
+          /* 빈 목록일 때 */
+          <div className="flex h-[300px] w-full max-w-[960px] items-center justify-center text-[#a2a2b3]">
+            파일 없음
+          </div>
+        ) : (
+          /* 파일 카드 목록 */
+          <ul
+            className="grid justify-start w-full grid-cols-[repeat(auto-fill,_minmax(240px,_1fr))] gap-4"
+          >
+
+            {filtered.map((f, idx) => (
               <li
-                key={i}
+                key={idx}
                 draggable
                 onDragStart={(e) => handleDragStart(e, f)}
-                style={{
-                  position: 'relative',
-                  border: '1px solid #ccc',
-                  padding: 8,
-                  cursor: 'grab',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
+                className="relative w-[240px] min-w-[240px] overflow-hidden rounded-xl bg-[#0c0c26]"
               >
+
                 {/* 썸네일 */}
                 {f.thumbnailImage && (
-                  <img
-                    src={f.thumbnailImage}
-                    alt={f.file_name}
-                    style={{
-                      width: '100%',
-                      aspectRatio: '1/1',
-                      objectFit: 'cover',
-                      marginBottom: 8,
-                      borderRadius: 4,
-                    }}
-                    draggable={false}
-                  />
+                  <>
+                    <img
+                      src={f.thumbnailImage}
+                      alt={f.file_name}
+                      className="aspect-[16/9] w-full object-cover"
+                      draggable={false}
+                    />
+                    {/* 파일명 오버레이 */}
+                    <span className="absolute bottom-0 left-0 w-full truncate bg-black/50 px-2 py-1 text-xs">
+                      {f.file_name}
+                    </span>
+                  </>
                 )}
-                {/* 파일명 */}
-                <strong
-                  style={{
-                    fontSize: 14,
-                    lineHeight: 1.2,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    marginBottom: 24,
-                  }}
-                >
-                  {f.file_name}
-                </strong>
-                {/* 삭제 버튼 */}
+
                 <button
+                  aria-label="delete"
                   onClick={() => handleDelete(f.file_name)}
+                  className="
+                absolute top-[4px] right-[5px] flex h-6 w-6 items-center justify-center
+                bg-transparent                       /* 평상시 완전 투명 */
+                text-white text-base leading-none    /* ‘X’ 글자 자체만 표시 */
+                hover:bg-[#1e1e25]                   /* 호버 시 어두운 배경 */
+                transition
+                select-none"
+                  /* ‘X’ 글자에만 얇은 붉은 테두리를 둘러준다 */
                   style={{
-                    position: 'absolute',
-                    bottom: 8,
-                    right: 8,
-                    fontSize: 12,
-                    background: 'rgba(220,53,69,0.1)',
-                    border: '1px solid #dc3545',
-                    borderRadius: 4,
-                    padding: '2px 6px',
-                    color: '#dc3545',
+                    WebkitTextStroke: '1px #dc2626',   /* 크롬·사파리 */
+                    textStroke: '1px #dc2626',        /* 파이어폭스(실험적) */
                   }}
                 >
-                  삭제
+                  ×
                 </button>
+
+
+
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </main>
+
+
+
+
+
     </div>
+
   );
 };
 

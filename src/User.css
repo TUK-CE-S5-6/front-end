@@ -1,3 +1,63 @@
+/* ───────────── Layout 영역 통합 ───────────── */
+
+/* ① 메인 그리드 컨테이너 */
+.container {
+  display: grid;
+  width: 100vw;                      /* 화면 전체 폭 */
+  height: 100vh;                     /* 화면 전체 높이 */
+  overflow: hidden;                  /* 바깥 오버플로 가리기 */
+  grid-template-columns: auto 1fr;   /* 왼쪽 고정폭, 오른쪽 남은 폭 */
+  grid-template-rows: auto 5px auto; /* 상단·스플리터·하단 */
+}
+
+/* ② 상단 Row(좌·우·세로 스플리터) */
+.topRow {
+  display: flex;
+  width: 100%;
+  overflow: visible;                 /* 가로 넘침 허용 → 스크롤은 내부에서 */
+}
+
+/* ③ 왼쪽 메뉴 + 라우트 콘텐츠 */
+.topLeft {
+  display: flex;
+  flex-direction: row;
+  width: 860px;                      /* JS로 조절한다면 인라인 style로 덮어씀 */
+  flex: none;
+  background: #313338;
+  overflow: hidden;
+}
+
+/* ④ 오른쪽 비디오 뷰어 */
+.topRight {
+  flex: 1 1 0;                       /* 남은 폭 모두 사용, 필요 시 줄어듦 */
+  min-width: 0;                      /* flex 줄바꿈 시 내용이 밀려나지 않게 */
+  background: #1e1f22;
+  overflow: auto;
+}
+
+/* ⑤ 하단 트랙 영역 */
+.bottom {
+  background: #2a2d31;
+  overflow: auto;
+}
+
+/* ⑥ 스플리터 (세로/가로) */
+.vertical-splitter {
+  width: 5px;
+  cursor: col-resize;
+  background: #404249;
+}
+
+.horizontal-splitter {
+  height: 5px;
+  cursor: row-resize;
+  background: #404249;
+}
+
+/* ───────────── End of Layout 영역 ───────────── */
+
+
+
 /* 스크롤바 숨기기용 */
 .hide-scrollbar {
   scrollbar-width: none;        /* Firefox */
@@ -75,45 +135,11 @@
 }
 /* UserLayout.css */
 
-/* 전체 container를 세로 3등분 (Top + Splitter + Bottom) */
-.container {
-  display: grid;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 5px auto;
-}
 
-/* 상단 Row (TopLeft + Splitter + TopRight) */
-.topRow {
-  display: flex;
-  width: 100%;
-  overflow: hidden;
-}
 
-/* 왼쪽 메뉴 및 콘텐츠 (TopLeft) */
-.topLeft {
-  display: flex;
-  flex-direction: row;
-  background-color: #313338;
-  overflow: hidden;
-}
 
-/* 오른쪽 Viewer 영역 (TopRight) */
-.topRight {
-  flex-grow: 1;
-  min-width: 300px;         /* ✅ 최소 너비 보장 */
-  min-height: 800px;        /* ✅ 최소 높이 보장 */
-  background-color: #1e1f22;
-  overflow: auto;
-}
 
-/* 하단 트랙 영역 */
-.bottom {
 
-  background-color: #2a2d31;
-}
 
 /* 수직 분할자 */
 .vertical-splitter {

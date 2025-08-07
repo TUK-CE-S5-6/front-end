@@ -1,13 +1,14 @@
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
+import { resetUserState } from './store';
 import 'react-circular-progressbar/dist/styles.css';
-
+import './components/Viewer/test.css';
 import './User.css';
-import './App.css';
-import './Layout.css';
 import Track from './components/Track/Track';
 import Viewer from './components/Viewer/test';
 const BASE_URL = 'http://175.116.3.178:8000';
@@ -318,12 +319,14 @@ function User() {
     });
   };
 
+
   useEffect(() => {
     if (!projectId) {
       setError('projectId가 없습니다.');
       setLoading(false);
       return;
     }
+    dispatch(resetUserState());
 
     const fetchAndDispatch = async () => {
       try {
@@ -488,206 +491,140 @@ function User() {
 
   return (
     <div>
-      {loading && (
-        <div className="loading-overlay">
-          <div className="spinner" />
-        </div>
-      )}
+      <div className="relative">
+        {/* ── 로딩 오버레이 ─────────────────────────────── */}
+        {loading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="spinner" />
+          </div>
+        )}
 
-      <div style={{ height: '100vh', overflow: 'hidden' }}>
-        {' '}
-        {/* ✅ 전체 화면 고정 및 스크롤 제거 */}
-        <div
-          className="container"
-          ref={containerRef}
-          style={{
-            gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px`,
-            backgroundColor: '#2b2d31', // 전체 배경
-            color: '#f2f3f5', // 전체 텍스트 색상
-          }}
-        >
-          {/* 상단 영역: 좌측은 여러 페이지, 우측은 VideoViewer */}
+        {/* ── 전체 레이아웃 컨테이너 ───────────────────── */}
+        <div className="h-screen overflow-hidden">
           <div
-            className="topRow"
-            ref={topRowRef}
-            style={{ gridColumn: '1 / span 2', display: 'flex', gap: '10px' }}
+            ref={containerRef}
+            className="grid h-full text-[#f2f3f5] bg-[#2b2d31]"
+            /* 행 높이만 상태값으로 유지 */
+            style={{ gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px` }}
           >
-            <div
-              className="topLeft"
-              style={{
-                width: `${topLeftWidth}px`,
-                display: 'flex', // ✅ 좌우 나누기 위해 flex
-                backgroundColor: '#313338',
-                color: '#f2f3f5',
-                overflow: 'hidden', // ✅ 외부 스크롤 방지
-                height: '100%', // ✅ 상위 row를 꽉 채우도록
-              }}
-            >
-              <nav
-                style={{
-                  /* layout */
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  padding: '8px',
-                  minWidth: '140px',
-                  height: '100%',
-
-                  /* new look */
-                  borderRight: '1px solid #1f1f2d',
-                  backgroundColor: '#15151e',
-                  fontFamily: 'Inter, "Noto Sans", sans-serif',
-                }}
-              >
-                {[
-                  {
-                    to: '/',
-                    label: 'Home',
-                    icon: (
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                        <path d="M9 21V15h6v6" />
-                      </svg>
-                    ),
-                  },
-
-                  {
-                    to: 'files',
-                    label: 'File Manager',
-                    icon: (
-                      <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
-                        <path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Z M40,56H92.69l16,16H40ZM216,200H40V88H216Z" />
-                      </svg>
-                    ),
-                  },
-                  {
-                    to: 'script',
-                    label: 'Script',
-                    icon: (
-                      <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
-                        <path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34Z M160,51.31L188.69,80H160Z M200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z" />
-                      </svg>
-                    ),
-                  },
-                  {
-                    to: 'tts2',
-                    label: 'Voice Generator',
-                    icon: (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-                        <path
-                          d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"
-                        ></path>
-                      </svg>
-                    ),
-                  },
-                  {
-                    to: 'TTSModel',
-                    label: 'Voice-Model Builder',
-                    icon: (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
-                        <path
-                          d="M200,48H136V16a8,8,0,0,0-16,0V48H56A32,32,0,0,0,24,80V192a32,32,0,0,0,32,32H200a32,32,0,0,0,32-32V80A32,32,0,0,0,200,48Zm16,144a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V80A16,16,0,0,1,56,64H200a16,16,0,0,1,16,16Zm-52-56H92a28,28,0,0,0,0,56h72a28,28,0,0,0,0-56Zm-28,16v24H120V152ZM80,164a12,12,0,0,1,12-12h12v24H92A12,12,0,0,1,80,164Zm84,12H152V152h12a12,12,0,0,1,0,24ZM72,108a12,12,0,1,1,12,12A12,12,0,0,1,72,108Zm88,0a12,12,0,1,1,12,12A12,12,0,0,1,160,108Z"
-                        ></path>
-                      </svg>
-                    ),
-                  },
-                  {
-                    to: 'Audio',
-                    label: 'Sound Effects',
-                    icon: (
-                      <svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
-                        <path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z" />
-                      </svg>
-                    ),
-                  },
-                ].map(({ to, label, icon }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end
-                    style={({ isActive }) => ({
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '8px 12px',
-                      borderRadius: '10px',
-                      backgroundColor: isActive ? '#2c2c3f' : 'transparent',
-                      color: '#ffffff',
-                      fontWeight: 500,
-                    })}
-                  >
-                    {icon}
-                    <span style={{ fontSize: '14px', lineHeight: '18px' }}>{label}</span>
-                  </NavLink>
-                ))}
-              </nav>
-
-
-
-
-              {/* 중첩 라우트의 컴포넌트를 여기에 렌더링 */}
+            {/* ── 상단(좌·우) 영역 ─────────────────────── */}
+            <div ref={topRowRef} className="col-span-2 flex gap-2">
+              {/* ┌──➊ 왼쪽 위: 사이드바 + Outlet ───────── */}
               <div
-                style={{ flex: 1, overflow: 'auto', height: '100%' }} // ✅ 스크롤이 생기도록 설정
-                className="hide-scrollbar" // ✅ 스크롤바 숨기기 클래스
+                className="flex h-full overflow-hidden bg-[#313338]"
+                style={{ width: `${topLeftWidth}px` }}   /* ← 드래그로 조절 */
               >
-                <Outlet context={{ projectId }} />
+                <nav className="flex flex-col gap-2 p-2 min-w-[140px] h-full border-r border-[#1f1f2d] bg-[#15151e] font-sans">
+                  {[
+                    { to: '/', label: 'Home', icon: <HomeIcon /> },
+                    { to: 'files', label: 'File Manager', icon: <FileIcon /> },
+                    { to: 'script', label: 'Script', icon: <ScriptIcon /> },
+                    { to: 'tts2', label: 'Voice Gen', icon: <VoiceIcon /> },
+                    { to: 'TTSModel', label: 'Voice-Model', icon: <ModelIcon /> },
+                    { to: 'Audio', label: 'Sound FX', icon: <SoundIcon /> },
+                  ].map(({ to, label, icon }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-white ${isActive ? 'bg-[#2c2c3f]' : ''
+                        }`
+                      }
+                    >
+                      {icon}
+                      <span className="text-sm leading-[18px]">{label}</span>
+                    </NavLink>
+                  ))}
+                </nav>
+
+
+                {/* 중첩 라우트 */}
+                <div className="flex-1 h-full overflow-auto hide-scrollbar">
+                  <Outlet context={{ projectId }} />
+                </div>
+              </div>
+
+              {/* 세로 스플리터 */}
+              <div
+                onMouseDown={handleVerticalSplitterMouseDown}
+                className="bg-[#404249] cursor-col-resize"
+                style={{ width: `${verticalSplitterWidth}px` }}
+              />
+
+              {/* └──➋ 오른쪽 위: 비디오 뷰어 ───────────── */}
+              <div className="flex-grow overflow-auto bg-[#2b2d31]">
+                <Viewer />
               </div>
             </div>
-            {/* Vertical splitter */}
+
+            {/* ── 가로 스플리터 ─────────────────────────── */}
             <div
-              className="vertical-splitter"
-              onMouseDown={handleVerticalSplitterMouseDown}
-              style={{
-                width: `${verticalSplitterWidth}px`,
-                backgroundColor: '#404249', // splitter 색상
-                cursor: 'col-resize',
-              }}
-            ></div>
-            <div
-              className="topRight"
-              style={{
-                flexGrow: 1,
-                backgroundColor: '#2b2d31', // Viewer 배경
-                color: '#f2f3f5',
-                overflow: 'auto', // ✅ 추가
-              }}
-            >
-              {/* 비디오 뷰어 */}
-              <Viewer />
+              onMouseDown={handleHorizontalSplitterMouseDown}
+              className="col-span-2 bg-[#404249] cursor-row-resize"
+              style={{ height: `${horizontalSplitterHeight}px` }}
+            />
+
+            {/* ── ➌ 하단: 트랙 영역 ────────────────────── */}
+            <div className="col-span-2 overflow-auto hide-scrollbar">
+              <Track />
             </div>
-          </div>
-          {/* Horizontal splitter */}
-          <div
-            className="horizontal-splitter"
-            onMouseDown={handleHorizontalSplitterMouseDown}
-            style={{
-              gridColumn: '1 / span 2',
-              backgroundColor: '#404249', // splitter 색상
-              cursor: 'row-resize',
-              padding: 0,
-              margin: 0,
-            }}
-          ></div>
-          {/* 하단 영역: Track 컴포넌트 */}
-          <div
-            className="bottom hide-scrollbar"
-            style={{ gridColumn: '1 / span 2', overflow: 'auto' }}
-          >
-            <Track />
           </div>
         </div>
       </div>
+
+
     </div>
   );
 }
+
+/* icons.js */
+export const HomeIcon = (props) => (
+  <svg
+    {...props}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    <path d="M9 21V15h6v6" />
+  </svg>
+);
+
+export const FileIcon = (props) => (
+  <svg {...props} width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M216,72H131.31L104,44.69A15.86,15.86,0,0,0,92.69,40H40A16,16,0,0,0,24,56V200.62A15.4,15.4,0,0,0,39.38,216H216.89A15.13,15.13,0,0,0,232,200.89V88A16,16,0,0,0,216,72Z M40,56H92.69l16,16H40ZM216,200H40V88H216Z" />
+  </svg>
+);
+
+export const ScriptIcon = (props) => (
+  <svg {...props} width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34Z M160,51.31L188.69,80H160Z M200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z" />
+  </svg>
+);
+
+export const VoiceIcon = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z" />
+  </svg>
+);
+
+export const ModelIcon = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M200,48H136V16a8,8,0,0,0-16,0V48H56A32,32,0,0,0,24,80V192a32,32,0,0,0,32,32H200a32,32,0,0,0,32-32V80A32,32,0,0,0,200,48Zm16,144a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V80A16,16,0,0,1,56,64H200a16,16,0,0,1,16,16Zm-52-56H92a28,28,0,0,0,0,56h72a28,28,0,0,0,0-56Zm-28,16v24H120V152ZM80,164a12,12,0,0,1,12-12h12v24H92A12,12,0,0,1,80,164Zm84,12H152V152h12a12,12,0,0,1,0,24ZM72,108a12,12,0,1,1,12,12A12,12,0,0,1,72,108Zm88,0a12,12,0,1,1,12,12A12,12,0,0,1,160,108Z" />
+  </svg>
+);
+
+export const SoundIcon = (props) => (
+  <svg {...props} width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
+    <path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z" />
+  </svg>
+);
+
 
 export default User;

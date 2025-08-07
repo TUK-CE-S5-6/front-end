@@ -6,8 +6,9 @@ const isDev = !app.isPackaged;
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1280,
+    width: 1680,
     height: 800,
+    backgroundColor: '#15151e',   // ← 다크 배경 지정
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false

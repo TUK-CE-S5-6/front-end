@@ -65,6 +65,8 @@ const Script = () => {
 
       const result = await res.json();
 
+
+
       // ✅ Redux store 업데이트
       dispatch({
         type: 'EDIT_TTS',
@@ -73,7 +75,7 @@ const Script = () => {
           duration: result.duration,
           url: result.url,
           translatedText: result.translateText,
-          originalText: edited.originalText,
+          originalText: result.originalText,
         },
       });
 
@@ -98,8 +100,9 @@ const Script = () => {
     .filter((track) => track.originalText && track.translatedText);
 
   return (
-    <div style={{ padding: '1rem', fontFamily: 'sans-serif' }}>
-      <h1>📝대본</h1>
+    <div className="p-4 font-['Inter','Noto_Sans',sans-serif] text-white bg-[#15151e]">
+      <h1 className="mb-6 text-2xl font-bold">📝 대본</h1>
+
       {validTracks.map((track) => {
         const { id, startTime, duration } = track;
         const endTime = startTime + duration;
@@ -108,87 +111,50 @@ const Script = () => {
         return (
           <div
             key={id}
-            style={{
-              border: '1px solid #ccc',
-              borderRadius: '8px',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-              background: '#fafafa',
-            }}
+            className="mb-6 rounded-xl bg-[#1e1e25] p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)] flex flex-col gap-4"
           >
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              {/* 원본 텍스트 수정 */}
-              <div style={{ flex: 1, padding: '10px' }}>
-                <h4 style={{ color: '#333', marginBottom: '0.5rem' }}>
-                  원본 텍스트
-                </h4>
+            {/* ───────── 입력 영역 ───────── */}
+            <div className="flex flex-col gap-4 md:flex-row">
+              {/* Original */}
+              <label className="flex flex-1 flex-col gap-2">
+                <span className="text-sm font-medium">Original Text</span>
                 <textarea
                   value={edited.originalText || ''}
                   onChange={(e) =>
                     handleChange(id, 'originalText', e.target.value)
                   }
-                  style={{
-                    width: '100%',
-                    minHeight: '80px',
-                    padding: '0.5rem',
-                    border: '1px solid #aaa',
-                    borderRadius: '4px',
-                    resize: 'vertical',
-                  }}
+                  className="h-24 w-full resize-y rounded-md border border-[#40404f] bg-transparent px-3 py-2 text-sm placeholder:text-[#a2a2b4] focus:outline-none"
+                  placeholder="원본 입력…"
                 />
-              </div>
+              </label>
 
-              {/* 번역 텍스트 수정 */}
-              <div style={{ flex: 1, padding: '10px' }}>
-                <h4 style={{ color: '#1a73e8', marginBottom: '0.5rem' }}>
-                  번역 텍스트
-                </h4>
+              {/* Translated */}
+              <label className="flex flex-1 flex-col gap-2">
+                <span className="text-sm font-medium">Translated Text</span>
                 <textarea
                   value={edited.translatedText || ''}
                   onChange={(e) =>
                     handleChange(id, 'translatedText', e.target.value)
                   }
-                  style={{
-                    width: '100%',
-                    minHeight: '80px',
-                    padding: '0.5rem',
-                    border: '1px solid #aaa',
-                    borderRadius: '4px',
-                    resize: 'vertical',
-                    color: '#1a73e8',
-                  }}
+                  className="h-24 w-full resize-y rounded-md border border-[#40404f] bg-transparent px-3 py-2 text-sm text-[#1a73e8] placeholder:text-[#a2a2b4] focus:outline-none"
+                  placeholder="번역 입력…"
                 />
-              </div>
+              </label>
             </div>
 
-            {/* 시간 표시 */}
-            <p
-              style={{
-                marginTop: '0.75rem',
-                fontSize: '0.9rem',
-                color: '#555',
-              }}
-            >
-              <strong>시작:</strong> {formatTime(startTime)} &nbsp;|&nbsp;
-              <strong>종료:</strong> {formatTime(endTime)}
-            </p>
+            {/* ───────── 버튼 + 시간대 ───────── */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => handleSubmit(id)}
+                className="h-8 rounded-full bg-[#2b2b36] px-4 text-sm font-medium"
+              >
+                수정요청
+              </button>
 
-            {/* 수정 요청 버튼 */}
-            <button
-              onClick={() => handleSubmit(id)}
-              style={{
-                marginTop: '0.5rem',
-                padding: '0.4rem 1rem',
-                fontSize: '0.9rem',
-                backgroundColor: '#007bff',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              TTS 수정 요청
-            </button>
+              <span className="text-sm text-[#a2a2b4]">
+                {formatTime(startTime)} – {formatTime(endTime)}
+              </span>
+            </div>
           </div>
         );
       })}

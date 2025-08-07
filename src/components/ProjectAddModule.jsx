@@ -31,6 +31,8 @@ function ProjectAddModule({ token, onProjectAdded }) {
       const formProj = new FormData();
       formProj.append('project_name', projectName);
       formProj.append('description', description);
+      formProj.append('source_language', sourceLang);
+      formProj.append('target_language', targetLang);
       const resProj = await api.post('/projects/add', formProj);
       const projectId = resProj.data.project_id;
 
