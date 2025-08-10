@@ -20,7 +20,7 @@ function ProjectList({ token }) {
       // 썸네일 URL에 video_id 사용
       const projectsWithThumb = (res.data.projects || []).map((proj) => ({
         ...proj,
-        thumbnail_url: `${BASE_URL}/thumbnails/${proj.video_id}.jpg`,
+        thumbnail_url: `${BASE_URL}/thumbnails/${proj.video_id}-cover.jpg`,
       }));
       setProjects(projectsWithThumb);
     } catch (err) {

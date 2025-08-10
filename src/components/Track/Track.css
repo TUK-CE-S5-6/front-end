@@ -59,18 +59,7 @@
     position: relative;
   }
   
-  /* 드래그 가능한 아이템 (트랙 요소) */
-  .draggable-item {
-    position: absolute;
-    top: 0;
-    height: 60px;
-    background-color: rgba(255, 0, 0, 0.1);
-    border: 1px solid #0062ff;
-    text-align: center;
-    line-height: 40px;
-    cursor: grab;
-    z-index: 10;
-  }
+
   
   /* 기타 버튼 메뉴 (드롭다운 스타일) */
   .other-button-menu {

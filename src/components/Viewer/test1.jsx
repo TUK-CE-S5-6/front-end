@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import store from '../../store';
 
+
 function wrapText(ctx, text, maxWidth) {
     const words = text.split(' ');
     const lines = [];
@@ -111,8 +112,6 @@ function wrapTextByLangBreak(text, fullLimit = 90, fullSoft = 80) {
 const baseUrl = 'http://175.116.3.178:8000/';
 
 const MergeAndPreviewPage = () => {
-  const togglePlay = () => setIsPlaying((prev) => !prev);
-
     const videoTracks = useSelector((state) => state.videoTracks);
     const audioTracks = useSelector((state) => state.audioTracks);
 
@@ -471,89 +470,84 @@ const MergeAndPreviewPage = () => {
         return () => clearInterval(interval); // cleanup
     }, [isPlaying]);
 
+    const togglePlay = () => (isPlaying ? handleStop() : handlePlay());
+    const percent = totalDuration > 0
+        ? (globalTime / totalDuration) * 100
+        : 0;
+
+    return (
 
 
+        <div className="flex flex-col h-full box-border bg-[#15151e] text-white">
+            {/* 상단 바 */}
 
 
-    
+            {/* Canvas + Hover 토글 버튼 + 하단 컨트롤 오버레이 */}
+            <div className="relative flex-1 group bg-black">
+                <canvas
+                    ref={canvasRef}
+                    width={1280}
+                    height={720}
+                    className="absolute inset-0 w-full h-full border border-[#15151e]"
+                />
 
-  return (
-    <div className="relative flex min-h-screen flex-col bg-[#131320] overflow-x-hidden">
-      {/* 상단 바 */}
-      <header className="h-10 px-4 flex items-center justify-end shrink-0 bg-[#131320]">
-        <button className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1d1d38] transition-colors">
-          💾 합성 및 다운로드
-        </button>
-      </header>
 
-      {/* 메인 컨텐츠 래퍼 */}
-      <main className="flex h-full grow flex-col items-center py-5 px-6">
-        <section className="flex flex-col max-w-[920px] w-full">
-          {/* ▶︎ 썸네일 / 플레이 영역 */}
-          <div className="p-4">
-            <div
-              className="relative flex items-center justify-center bg-[#5e5eed] bg-cover bg-center aspect-video rounded-lg p-4"
-              style={{
-                backgroundImage:
-                  'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCZADMTkFuk7d7ejXf8htJeWg6WQ1EYi5sIb0wcd4_fI95veGeXjqZaTRbuRfpaQjpAGzDGBXFe2GnecJMM07VDCIn_VoHmBb8yGVyF2AIgQMe380kgg3R8Im02n4HS-uQXZC0fjKRmzRdliLPf02nftmAjr4nAIMGb5USnVXnqXjhjrZ2yyTl7e8s7Rv_I2e0LQrck3_CPeYxiYfjoLssXBGeEy3Bwu3FdpGDqoT3Z6NcyooB8gm6bQhFlsk05tz2qep88GH8-GB6K")',
-              }}
-            >
-              {/* 재생 / 정지 토글 버튼 */}
-              <button
-                onClick={togglePlay}
-                aria-label={isPlaying ? '정지' : '재생'}
-                className="flex items-center justify-center w-16 h-16 rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 text-white transition-colors"
-              >
-                {isPlaying ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
-                    <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 256 256" fill="currentColor">
-                    <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
-                  </svg>
-                )}
-              </button>
-
-              {/* 진행 바 (목업) */}
-              <div className="absolute inset-x-0 bottom-0 px-4 py-3">
-                <div className="flex h-4 items-center">
-                  <div className="flex-1 h-1 bg-white rounded-full" />
-                  <div className="relative">
-                    <div className="absolute -left-2 -top-2 w-4 h-4 bg-white rounded-full" />
-                  </div>
-                  <div className="flex-1 h-1 bg-white/40 rounded-full" />
-                </div>
-                <div className="flex items-center justify-between text-white text-xs font-medium tracking-[0.015em]">
-                  <span>0:37</span>
-                  <span>2:23</span>
-                </div>
-              </div>
             </div>
-          </div>
 
-          {/* ⏪⏩ 컨트롤 버튼 */}
-          <div className="flex justify-center">
-            <div className="flex flex-wrap gap-3 max-w-[480px] w-full px-4 py-3 justify-center">
-              <button className="flex min-w-[84px] h-10 items-center justify-center rounded-lg px-4 bg-[#242447] hover:bg-[#1d1d38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#242447]/60 text-white text-sm font-bold grow transition-colors">
-                Rewind&nbsp;5s
-              </button>
-              <button className="flex min-w-[84px] h-10 items-center justify-center rounded-lg px-4 bg-[#242447] hover:bg-[#1d1d38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#242447]/60 text-white text-sm font-bold grow transition-colors">
-                Forward&nbsp;5s
-              </button>
+
+            {/* 영상 아래 고정된 재생바 컨트롤 */}
+            <div >
+
+                {/* 슬라이더 */}
+                <input
+                    type="range"
+                    min={0}
+                    max={totalDuration}
+                    step="0.01"
+                    value={globalTime}
+                    onChange={handleSeekDrag}
+                    onMouseUp={handleSeekCommit}
+                    onTouchEnd={handleSeekCommit}
+                    className="relative w-full accent-white mb-0.5" /* 흰색 진행선/thumb */
+                />
+
+                <div className="flex items-center -mt-1.5 pr-1.5">
+                    <button
+                        onClick={togglePlay}
+                        aria-label={isPlaying ? '정지' : '재생'}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-0.5 -mt-0.5 mb-0.5"
+                    >
+                        {isPlaying ? (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-6 h-6 text-white"
+                                viewBox="0 0 256 256"
+                                fill="currentColor"
+                            >
+                                <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
+                            </svg>
+                        ) : (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-6 h-6 text-white"
+                                viewBox="0 0 256 256"
+                                fill="currentColor"
+                            >
+                                <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
+                            </svg>
+                        )}
+                    </button>
+                    <div className="ml-auto mr-3 text-xs text-[#f2f3f5]">
+                        {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+                    </div>
+                    <button onClick={handleMergeClick} className="flex items-center gap-1 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors">
+                        💾 합성 및 다운로드
+                    </button>
+
+                </div>
             </div>
-          </div>
-        </section>
-      </main>
-
-      {/* 하단 컨트롤 바 */}
-      <footer className="h-10 px-4 flex items-center justify-between shrink-0 bg-[#131320] text-xs text-[#f2f3f5]">
-        <span>0:00 / 0:00</span>
-      </footer>
-    </div>
-  );
+        </div>
+    );
 };
-
-
 
 export default MergeAndPreviewPage;

@@ -503,7 +503,7 @@ function User() {
         <div className="h-screen overflow-hidden">
           <div
             ref={containerRef}
-            className="grid h-full text-[#f2f3f5] bg-[#2b2d31]"
+            className="grid h-full text-[#f2f3f5] bg-[#15151e]"
             /* 행 높이만 상태값으로 유지 */
             style={{ gridTemplateRows: `${topHeight} ${horizontalSplitterHeight}px ${bottomHeight}px` }}
           >
@@ -511,7 +511,7 @@ function User() {
             <div ref={topRowRef} className="col-span-2 flex gap-2">
               {/* ┌──➊ 왼쪽 위: 사이드바 + Outlet ───────── */}
               <div
-                className="flex h-full overflow-hidden bg-[#313338]"
+                className="flex h-full overflow-hidden bg-[#15151e]"
                 style={{ width: `${topLeftWidth}px` }}   /* ← 드래그로 조절 */
               >
                 <nav className="flex flex-col gap-2 p-2 min-w-[140px] h-full border-r border-[#1f1f2d] bg-[#15151e] font-sans">
@@ -553,7 +553,7 @@ function User() {
               />
 
               {/* └──➋ 오른쪽 위: 비디오 뷰어 ───────────── */}
-              <div className="flex-grow overflow-auto bg-[#2b2d31]">
+              <div className="flex-grow overflow-auto bg-[#15151e]">
                 <Viewer />
               </div>
             </div>

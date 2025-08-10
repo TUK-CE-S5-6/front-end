@@ -14,12 +14,17 @@ const CPS_MAP = {
 
 /* =========================================
    텍스트 분할 (문장부호 우선 → 길이 보강)
+   maxCharsPerCue는 2줄 기준 총 글자 수 목표 (약 22~26 권장)
    ========================================= */
+// 문장부호 1차 → (영문일 때) 쉼표/세미콜론/콜론/대시 2차 → 길이 보강
 function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
+  // 1) 여러 공백 하나로
   const normalized = text.replace(/\s+/g, ' ').trim();
 
+  // 2) 종결부호·쉼표 뒤에 공백이 있는 경우만 분할
+  //    lookbehind로 부호 + 공백 패턴 잡아서 split
   const sentenceParts = normalized
-    .split(/(?<=[.?!…。，！？,])\s+/)
+    .split(/(?<=[.?!…。，！？,])\s+/) // ← 쉼표 추가
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -29,12 +34,16 @@ function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
       chunks.push(sentence);
       continue;
     }
-    const words = sentence.split(/(\s+)/);
+
+    // 3) 공백 기준 분할 → 초과 시 하드컷
+    const words = sentence.split(/(\s+)/); // 공백 유지
     let buf = '';
     for (const w of words) {
       if ((buf + w).trim().length > maxCharsPerCue) {
         if (buf.trim()) chunks.push(buf.trim());
         buf = w.trim();
+
+        // 단어 자체가 너무 긴 경우 하드컷
         while (buf.length > maxCharsPerCue) {
           chunks.push(buf.slice(0, maxCharsPerCue));
           buf = buf.slice(maxCharsPerCue);
@@ -45,6 +54,7 @@ function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
     }
     if (buf.trim()) chunks.push(buf.trim());
   }
+
   return chunks;
 }
 
@@ -52,7 +62,8 @@ function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
    캔버스 폭 기반 줄바꿈 (픽셀 기준)
    ========================================= */
 function wrapText(ctx, text, maxWidth) {
-  const tokens = text.includes(' ') ? text.split(' ') : text.split('');
+  // 공백이 적은 CJK 대응: 스페이스가 거의 없어도 글자 단위로 안전하게 줄바꿈
+  const tokens = text.includes(' ') ? text.split(' ') : text.split(''); // 공백이 없으면 글자 단위
   const lines = [];
   let line = '';
 
@@ -72,7 +83,7 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /* =========================================
-   워터필 스케일링
+   워터필 스케일링: 합계를 D로 맞추되 각 항목 min/max 제약
    ========================================= */
 function waterfillScale(raw, D, mins, maxs) {
   let x = raw.map((v, i) => Math.min(Math.max(v, mins[i]), maxs[i]));
@@ -97,29 +108,28 @@ function waterfillScale(raw, D, mins, maxs) {
       const delta = (x[i] / freeSum) * need;
       const v = x[i] + delta;
       const clamped = Math.min(Math.max(v, mins[i]), maxs[i]);
-      if (clamped !== v) fixed[i] = true;
+      if (clamped !== v) fixed[i] = true; // 경계 고정
       if (Math.abs(clamped - x[i]) > 1e-6) changed = true;
       x[i] = clamped;
     }
     if (!changed) break;
   }
 
+  // 미세 보정
   let acc = x.reduce((a, b) => a + b, 0);
   const diff = D - acc;
   if (x.length) x[x.length - 1] += diff;
   return x;
 }
 
-/* =========================================
-   비율 배분
-   ========================================= */
+// 텍스트 분할 결과(chunks)를 가중치 비례로 D에 맞춰 배분
 function allocateByProportion(
   seg,
   splitFn,
   {
-    minDur = 2.7,
-    maxDur = 16.5,
-    weight = (t) => t.replace(/\s/g, '').length || 1,
+    minDur = 2.7, // 3배 설정 유지
+    maxDur = 16.5, // 3배 설정 유지
+    weight = (t) => t.replace(/\s/g, '').length || 1, // 기본: 공백 제외 글자수
   } = {}
 ) {
   const { start, end, text } = seg;
@@ -127,14 +137,19 @@ function allocateByProportion(
   const chunks = splitFn(text);
   if (!chunks.length || D === 0) return [{ text, start, end }];
 
+  // 1) 가중치
   const ws = chunks.map(weight);
   const W = ws.reduce((a, b) => a + b, 0) || 1;
 
+  // 2) 1차 배분 + 개별 min/max
   let durs = ws.map((w) => Math.max(minDur, Math.min(maxDur, (w / W) * D)));
+
+  // 3) 합을 정확히 D로 맞추도록 스케일
   const sum = durs.reduce((a, b) => a + b, 0);
   const scale = sum === 0 ? 1 : D / sum;
   durs = durs.map((d) => d * scale);
 
+  // 4) 누적으로 start/end 산출 (마지막은 end에 스냅)
   const cues = [];
   let t = start;
   for (let i = 0; i < chunks.length; i++) {
@@ -143,6 +158,7 @@ function allocateByProportion(
     cues.push({ text: chunks[i], start: t, end: t + dur });
     t += dur;
   }
+  // 부동소수 보정
   if (cues.length) {
     cues[0].start = start;
     cues[cues.length - 1].end = end;
@@ -151,7 +167,8 @@ function allocateByProportion(
 }
 
 /* =========================================
-   HTA
+   HTA: 하이브리드 시간 분배 (CPS → 제약 → 스케일)
+   단어 타임스탬프/무음 스냅은 생략(필요 시 확장 가능)
    ========================================= */
 function allocateHTA(seg, splitFn, options) {
   const D = Math.max(0.1, seg.end - seg.start);
@@ -176,6 +193,7 @@ function allocateHTA(seg, splitFn, options) {
     t = end;
   }
 
+  // 경계 보정
   if (cues.length) {
     cues[0].start = seg.start;
     cues[cues.length - 1].end = seg.end;
@@ -184,12 +202,12 @@ function allocateHTA(seg, splitFn, options) {
 }
 
 /* =========================================
-   트랙 → 자막 큐 계산
+   트랙 → 자막 큐 계산 (언어별 CPS 적용)
    ========================================= */
 const HTA_DEFAULTS_BASE = {
-  minDur: 2.7,
-  maxDur: 16.5,
-  maxCharsPerCue: 72,
+  minDur: 2.7, // 0.9 × 3
+  maxDur: 16.5, // 5.5 × 3
+  maxCharsPerCue: 72, // 24 × 3
 };
 
 function getCuesForTrack(track, groupLang) {
@@ -198,11 +216,13 @@ function getCuesForTrack(track, groupLang) {
   const end = start + dur;
   if (!track.translatedText) return [];
 
+  // 언어별 CPS 선택 (없으면 ko)
   const lang = (track.lang || groupLang || 'ko').toLowerCase();
   const targetCps = CPS_MAP[lang] ?? CPS_MAP.ko;
 
   const seg = { start, end, text: track.translatedText };
 
+  // 가중치 = (공백 제외 글자수) / CPS  → 발화 시간 추정치에 비례
   const weight = (t) => {
     const L = t.replace(/\s/g, '').length || 1;
     return L / targetCps;
@@ -220,7 +240,7 @@ function getCuesForTrack(track, groupLang) {
 }
 
 /* =========================================
-   기본 박스 드로어 (기존)
+   캔버스 렌더링 보조: 자막 박스 + 텍스트
    ========================================= */
 function drawCueBoxAndText(
   ctx,
@@ -234,8 +254,9 @@ function drawCueBoxAndText(
 
   ctx.font = `${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = 'middle'; // ← 핵심: baseline을 가운데로
 
+  // 배경 박스 크기 측정
   const padding = 10;
   let maxLineWidth = 0;
   lines.forEach((line) => {
@@ -243,19 +264,23 @@ function drawCueBoxAndText(
     if (w > maxLineWidth) maxLineWidth = w;
   });
 
-  const textBlockHeight = lineHeight * lines.length;
+  const textBlockHeight = lineHeight * lines.length; // 텍스트 블록 높이
   const rectWidth = maxLineWidth + padding * 2;
   const rectHeight = textBlockHeight + padding * 2;
 
+  // 박스는 하단에서 20px 위
   const rectX = x - rectWidth / 2;
   const rectY = canvasHeight - 20 - rectHeight;
 
+  // 반투명 박스
   ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
 
+  // 텍스트를 박스 중앙에 세로 정렬
   const rectCenterY = rectY + rectHeight / 2;
   const firstLineY = rectCenterY - textBlockHeight / 2 + lineHeight / 2;
 
+  // 텍스트(외곽선 + 채움)
   ctx.lineWidth = 4;
   ctx.strokeStyle = 'black';
   ctx.fillStyle = 'white';
@@ -267,203 +292,9 @@ function drawCueBoxAndText(
 }
 
 /* =========================================
-   옵션 버전 박스 드로어 (색 보더/위치 지정)
-   ========================================= */
-function drawCueBoxAndTextEx(
-  ctx,
-  canvasWidth,
-  canvasHeight,
-  lines,
-  fontSize = 28,
-  lineHeight = 36,
-  {
-    rectCenterX = canvasWidth / 2,
-    rectBottom = canvasHeight - 20,
-    padding = 10,
-    borderColor = null,
-  } = {}
-) {
-  ctx.font = `${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  let maxLineWidth = 0;
-  lines.forEach((line) => {
-    const w = ctx.measureText(line).width;
-    if (w > maxLineWidth) maxLineWidth = w;
-  });
-
-  const textBlockHeight = lineHeight * lines.length;
-  const rectWidth = maxLineWidth + padding * 2;
-  const rectHeight = textBlockHeight + padding * 2;
-  const rectX = rectCenterX - rectWidth / 2;
-  const rectY = rectBottom - rectHeight;
-
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
-
-  if (borderColor) {
-    ctx.fillStyle = borderColor;
-    ctx.fillRect(rectX, rectY, 4, rectHeight);
-    ctx.fillRect(rectX + rectWidth - 4, rectY, 4, rectHeight);
-  }
-
-  const rectCenterY = rectY + rectHeight / 2;
-  const firstLineY = rectCenterY - textBlockHeight / 2 + lineHeight / 2;
-
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = 'black';
-  ctx.fillStyle = 'white';
-  lines.forEach((line, i) => {
-    const y = firstLineY + i * lineHeight;
-    ctx.strokeText(line, rectCenterX, y);
-    ctx.fillText(line, rectCenterX, y);
-  });
-
-  return { rectX, rectY, rectWidth, rectHeight };
-}
-
-/* =========================================
-   활성 큐 수집
-   ========================================= */
-function collectActiveCuesWithMeta(currentTime, audioTracks) {
-  const items = [];
-  audioTracks.forEach((group, gi) => {
-    (group.tracks || []).forEach((track) => {
-      if (!track.translatedText) return;
-      const cues = getCuesForTrack(track, group.lang);
-      const active = cues.find(
-        (q) => currentTime >= q.start && currentTime <= q.end
-      );
-      if (active) {
-        items.push({
-          speakerId: track.speakerId || group.speakerId || track.id,
-          color:
-            group.color ||
-            ['#4F46E5', '#16A34A', '#EA580C', '#9333EA', '#0EA5E9'][gi % 5],
-          text: active.text,
-          startedAt: active.start,
-          endsAt: active.end,
-        });
-      }
-    });
-  });
-  items.sort((a, b) => a.startedAt - b.startedAt); // 먼저 시작 ↑
-  return items;
-}
-
-/* =========================================
-   스티키 레이아웃 결정
-   ========================================= */
-function resolveStickyLayout(activeItems, laneRef) {
-  const st = laneRef.current;
-  const byId = (id) => activeItems.find((x) => x.speakerId === id) || null;
-
-  let bottom = st.bottomId ? byId(st.bottomId) : null;
-  let top = st.topId ? byId(st.topId) : null;
-
-  if (!bottom && !top) {
-    if (activeItems.length >= 2) {
-      // 처음 겹침: 먼저 시작 = 아래, 다음 시작 = 위
-      bottom = activeItems[0];
-      top = activeItems[1];
-      st.bottomId = bottom.speakerId;
-      st.topId = top.speakerId;
-    } else if (activeItems.length === 1) {
-      // 단독: 스티키 배정 없음(아래 한 박스만)
-      bottom = activeItems[0];
-      st.bottomId = null;
-      st.topId = null;
-    }
-  } else {
-    if (bottom && !top) {
-      // 아래만 살아있는데 새로운 화자가 들어오면 그 화자를 위로
-      const other = activeItems.find((i) => i.speakerId !== bottom.speakerId);
-      if (other) {
-        top = other;
-        st.topId = other.speakerId;
-      }
-    }
-    if (!bottom && top) {
-      // 위만 살아있을 때 새로운 화자가 들어오면 그 화자를 아래로
-      const other = activeItems.find((i) => i.speakerId !== top.speakerId);
-      if (other) {
-        bottom = other;
-        st.bottomId = other.speakerId;
-      }
-    }
-  }
-
-  if (!bottom && !top && activeItems.length === 0) {
-    st.bottomId = null;
-    st.topId = null;
-    st.lastTopBottom = null;
-  }
-
-  const overflow = activeItems.filter(
-    (i) =>
-      (!bottom || i.speakerId !== bottom.speakerId) &&
-      (!top || i.speakerId !== top.speakerId)
-  );
-
-  return { bottom, top, overflow };
-}
-
-/* =========================================
-   스티키 수직 스택 렌더
-   ========================================= */
-function drawVerticalStackWithLayout(ctx, canvasW, canvasH, layout, laneRef) {
-  const baseBottom = canvasH - 20;
-  const gap = 8;
-  const maxWidth = canvasW * 0.9;
-  const fontSize = 28;
-  const lineHeight = 36;
-
-  const drawBadge = (text, color, targetBottom, width = maxWidth) => {
-    const lines = wrapText(ctx, text, width);
-    return drawCueBoxAndTextEx(
-      ctx,
-      canvasW,
-      canvasH,
-      lines,
-      fontSize,
-      lineHeight,
-      {
-        rectCenterX: canvasW / 2,
-        rectBottom: targetBottom,
-        borderColor: color,
-      }
-    );
-  };
-
-  const { bottom, top, overflow } = layout;
-  const st = laneRef.current;
-
-  if (!bottom && !top) return;
-
-  if (bottom && top) {
-    const bottomBox = drawBadge(bottom.text, bottom.color, baseBottom);
-    const topTargetBottom = bottomBox.rectY - gap;
-    drawBadge(top.text, top.color, topTargetBottom);
-    st.lastTopBottom = topTargetBottom; // 위의 Y 위치 기억
-  } else if (bottom && !top) {
-    drawBadge(bottom.text, bottom.color, baseBottom);
-  } else if (!bottom && top) {
-    const fallbackTopBottom = Math.max(baseBottom - 120, 40);
-    const targetBottom = st.lastTopBottom ?? fallbackTopBottom;
-    drawBadge(top.text, top.color, targetBottom);
-  }
-
-  if (overflow.length > 0) {
-    const text = overflow.map((o) => o.text).join('\n');
-    drawBadge(text, '#9CA3AF', Math.floor(canvasH * 0.2), canvasW * 0.6);
-  }
-}
-
-/* =========================================
    컴포넌트
    ========================================= */
-const baseUrl = 'http://175.116.3.178:8000/';
+const baseUrl = 'http://localhost:8000/';
 
 const MergeAndPreviewPage = () => {
   const videoTracks = useSelector((state) => state.videoTracks);
@@ -476,17 +307,11 @@ const MergeAndPreviewPage = () => {
   const playStartRef = useRef(0);
   const timeoutsRef = useRef([]);
 
-  // 🔸 스티키 레이아웃 상태
-  const laneRef = useRef({
-    bottomId: null,
-    topId: null,
-    lastTopBottom: null,
-  });
-
   const [globalTime, setGlobalTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [localSeekTime, setLocalSeekTime] = useState(globalTime);
 
+  // 전체 타임라인 길이
   const totalDuration = useMemo(() => {
     let max = 0;
     [...videoTracks, ...audioTracks].forEach((group) => {
@@ -499,7 +324,7 @@ const MergeAndPreviewPage = () => {
   }, [videoTracks, audioTracks]);
 
   useEffect(() => {
-    // 비디오 준비
+    // 비디오 엘리먼트 준비
     videoTracks.forEach((group) => {
       group.tracks.forEach((track) => {
         const url = track.url?.startsWith('http')
@@ -517,7 +342,7 @@ const MergeAndPreviewPage = () => {
       });
     });
 
-    // 오디오 준비
+    // 오디오 엘리먼트 준비
     audioTracks.forEach((group) => {
       group.tracks.forEach((track) => {
         const url = track.url?.startsWith('http')
@@ -549,13 +374,8 @@ const MergeAndPreviewPage = () => {
     setGlobalTime(newTime);
     drawCanvasOnce(newTime);
   };
-
   const handleSeekCommit = () => {
     store.dispatch({ type: 'SET_TIME', payload: localSeekTime });
-
-    // 🔸 시킹 확정 시 스티키 초기화
-    laneRef.current = { bottomId: null, topId: null, lastTopBottom: null };
-
     if (isPlaying) {
       handleStop();
       handlePlay();
@@ -571,22 +391,39 @@ const MergeAndPreviewPage = () => {
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
 
-    // 비디오
+    // 비디오 레이어
     videoTracks.forEach((group) => {
       group.tracks.forEach((track) => {
         const v = videoElementsRef.current[track.id];
         if (v && v.readyState >= 2) {
+          // 단순히 현재 프레임 그리기 (seek 시 비디오의 프레임 업데이트를 강제하려면 currentTime 조정 필요)
           ctx.drawImage(v, 0, 0, c.width, c.height);
         }
       });
     });
 
-    // 자막 (스냅샷으로 미리보기: laneRef 원본 불변)
-    const activeItemsOnce = collectActiveCuesWithMeta(timeSec, audioTracks);
-    const laneSnapshot = { ...laneRef.current };
-    const tempRef = { current: laneSnapshot };
-    const layoutOnce = resolveStickyLayout(activeItemsOnce, tempRef);
-    drawVerticalStackWithLayout(ctx, c.width, c.height, layoutOnce, tempRef);
+    // 자막 레이어
+    audioTracks.forEach((group) => {
+      group.tracks.forEach((track) => {
+        const start = track.startTime || 0;
+        const dur = track.duration || 0;
+        if (
+          track.translatedText &&
+          timeSec >= start &&
+          timeSec <= start + dur
+        ) {
+          const cues = getCuesForTrack(track, group.lang);
+          const active = cues.find(
+            (q) => timeSec >= q.start && timeSec <= q.end
+          );
+          if (active) {
+            // 픽셀 폭 기준 줄바꿈 (캔버스 90% 폭)
+            const lines = wrapText(ctx, active.text, c.width * 0.9);
+            drawCueBoxAndText(ctx, c.width, c.height, lines);
+          }
+        }
+      });
+    });
   };
 
   /* -------------------------
@@ -621,10 +458,27 @@ const MergeAndPreviewPage = () => {
       });
     });
 
-    // 자막 (스티키 레이아웃)
-    const activeItems = collectActiveCuesWithMeta(currentTime, audioTracks);
-    const layout = resolveStickyLayout(activeItems, laneRef);
-    drawVerticalStackWithLayout(ctx, c.width, c.height, layout, laneRef);
+    // 자막
+    audioTracks.forEach((group) => {
+      group.tracks.forEach((track) => {
+        const start = track.startTime || 0;
+        const dur = track.duration || 0;
+        if (
+          track.translatedText &&
+          currentTime >= start &&
+          currentTime <= start + dur
+        ) {
+          const cues = getCuesForTrack(track, group.lang);
+          const active = cues.find(
+            (q) => currentTime >= q.start && currentTime <= q.end
+          );
+          if (active) {
+            const lines = wrapText(ctx, active.text, c.width * 0.9);
+            drawCueBoxAndText(ctx, c.width, c.height, lines);
+          }
+        }
+      });
+    });
 
     animationFrameRef.current = requestAnimationFrame(drawCanvas);
   };
@@ -635,9 +489,6 @@ const MergeAndPreviewPage = () => {
   const handlePlay = () => {
     if (isPlaying) return;
 
-    // 🔸 재생 시작 시 스티키 초기화
-    laneRef.current = { bottomId: null, topId: null, lastTopBottom: null };
-
     store.dispatch({ type: 'SET_PLAYING', payload: 1 });
 
     timeoutsRef.current.forEach(clearTimeout);
@@ -645,7 +496,7 @@ const MergeAndPreviewPage = () => {
     setIsPlaying(true);
     playStartRef.current = Date.now() - globalTime * 1000;
 
-    // 미디어 스케줄링
+    // 각 미디어 스케줄링
     [...videoTracks, ...audioTracks].forEach((group) => {
       group.tracks.forEach((track) => {
         const elem =
@@ -746,84 +597,119 @@ const MergeAndPreviewPage = () => {
   }, [isPlaying]);
 
   return (
-  <div className="flex flex-col h-full box-border bg-[#15151e] text-white">
-    {/* 캔버스 영역 (1번 스타일) */}
-    <div className="relative flex-1 group bg-black">
-      <canvas
-        ref={canvasRef}
-        width={1280}
-        height={720}
-        className="absolute inset-0 w-full h-full border border-[#15151e]"
-      />
-    </div>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* 상단 버튼 */}
+      <div
+        style={{
+          height: '40px',
+          padding: '0 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+        }}
+      >
+        <button onClick={handleMergeClick}>💾 합성 및 다운로드</button>
+      </div>
 
-    {/* 하단 컨트롤 바 (슬라이더 + 버튼들) */}
-    <div>
-      {/* 진행 슬라이더 */}
-      <input
-        type="range"
-        min={0}
-        max={totalDuration}
-        step="0.01"
-        value={globalTime}
-        onChange={handleSeekDrag}
-        onMouseUp={handleSeekCommit}
-        onTouchEnd={handleSeekCommit}
-        className="relative w-full accent-white mb-0.5"
-      />
-
-      {/* 컨트롤 버튼 행 */}
-      <div className="flex items-center -mt-1.5 pr-1.5">
-        {/* ▶ 재생 */}
-        <button
-          onClick={handlePlay}
-          aria-label="재생"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-0.5 -mt-0.5 mb-0.5"
+      {/* Canvas 영역 */}
+      <div
+        style={{
+          flex: '0 1 auto',
+          height: 'calc(100% - 40px - 40px - 40px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '1rem',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '800px',
+            minWidth: '440px',
+            aspectRatio: '16 / 9',
+            backgroundColor: 'black',
+          }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6 text-white"
-            viewBox="0 0 256 256"
-            fill="currentColor"
-          >
-            <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
-          </svg>
-        </button>
+          <canvas
+            ref={canvasRef}
+            width={1280}
+            height={720}
+            style={{
+              width: '100%',
+              height: '100%',
+              minWidth: '640px',
+              minHeight: '360px',
+              maxWidth: '1280px',
+              maxHeight: '720px',
+              display: 'block',
+              border: '1px solid #ccc',
+            }}
+          />
+        </div>
+      </div>
 
-        {/* ⏹ 정지 */}
-        <button
-          onClick={handleStop}
-          aria-label="정지"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-2 -mt-0.5 mb-0.5"
+      {/* 재생/정지 버튼 */}
+      <div
+        style={{
+          height: '40px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '1rem',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+        }}
+      >
+        <button onClick={handlePlay}>▶️ 재생</button>
+        <button onClick={handleStop}>⏹ 정지</button>
+      </div>
+
+      {/* 재생바 */}
+      <div
+        style={{
+          height: '40px',
+          padding: '0 1rem',
+          boxSizing: 'border-box',
+          flexShrink: 0,
+          backgroundColor: '#313338',
+          marginBottom: '800px',
+        }}
+      >
+        <input
+          type="range"
+          min={0}
+          max={totalDuration}
+          step="0.01"
+          value={globalTime}
+          onChange={handleSeekDrag}
+          onMouseUp={handleSeekCommit}
+          onTouchEnd={handleSeekCommit}
+          style={{ width: '100%' }}
+        />
+        <div
+          style={{
+            textAlign: 'right',
+            fontSize: '0.75rem',
+            marginTop: '4px',
+            color: '#f2f3f5',
+          }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6 text-white"
-            viewBox="0 0 256 256"
-            fill="currentColor"
-          >
-            <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
-          </svg>
-        </button>
-
-        {/* 시간 표시 */}
-        <div className="ml-auto mr-3 text-xs text-[#f2f3f5]">
           {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
         </div>
-
-        {/* 다운로드(합성) */}
-        <button
-          onClick={handleMergeClick}
-          className="flex items-center gap-2 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors"
-        >
-          <i className="fi fi-br-download" style={{ fontSize: 16, lineHeight: 0 }} />
-          다운로드
-        </button>
       </div>
     </div>
-  </div>
-);
-
+  );
 };
 
 export default MergeAndPreviewPage;

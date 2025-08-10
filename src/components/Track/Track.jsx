@@ -188,49 +188,67 @@ const Track = () => {
   return (
     <div
       ref={containerRef}
-      className="track-container hide-scrollbar"  // ← ✅ 클래스 추가
+      className="track-container hide-scrollbar"
       style={{
         position: 'relative',
         width: '3000px',
         height: '500px',
-        overflow: 'auto',               // ✅ 스크롤은 작동하도록 유지
-        backgroundColor: '#2b2d31',
+        overflow: 'auto',
+        backgroundColor: '#15151e',
         color: '#f2f3f5',
       }}
     >
       {/* 🎛 상단 컨트롤 바 */}
       <div
         style={{
-          top: 0,                  // ✅ 화면 최상단
-          zIndex: 10,              // ✅ 겹침 우선순위 설정
+          top: 0,
+          zIndex: 10,
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           padding: '10px 20px',
-          backgroundColor: '#313338',
-          borderBottom: '1px solid #404249',
+          backgroundColor: '#15151e',
+          borderBottom: '1px solid #2b2b36',
         }}
       >
-        <button style={{ background: '#5865f2', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }} onClick={addAudioTrack}>
-          Add Audio Track {nextAudioIndex}
-        </button>
-        <button style={{ background: '#5865f2', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }} onClick={addVideoTrack}>
-          Add Video Track {nextVideoIndex}
+        <button
+          style={{
+            background: '#2b2b36',
+            color: '#f2f3f5',
+            border: 'none',
+            padding: '6px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+          onClick={addAudioTrack}
+        >
+          <i className="fi fi-sr-music-alt" style={{ fontSize: 16, lineHeight: 0 }} />
+          Audio
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button style={{ background: '#404249', color: '#f2f3f5' }} onClick={handleZoomIn}>＋</button>
-          <button style={{ background: '#404249', color: '#f2f3f5' }} onClick={handleZoomOut}>－</button>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={zoom}
-            onChange={handleSliderChange}
-            style={{ width: '150px', background: '#5865f2' }}
-          />
-          <span>{zoom}%</span>
-        </div>
+        <button
+          style={{
+            background: '#2b2b36',
+            color: '#f2f3f5',
+            border: 'none',
+            padding: '6px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+          onClick={addVideoTrack}
+        >
+          <i className="fi fi-rr-video-camera-alt" style={{ fontSize: 16, lineHeight: 0 }} />
+          Video
+        </button>
+
+
+        
       </div>
 
       {/* Timeline 눈금 */}
@@ -239,7 +257,7 @@ const Track = () => {
           position: 'relative',
           height: '40px',
           width: timelineWidth,
-          marginLeft: '200px'
+          marginLeft: '200px',
         }}
       >
         {ticks}
@@ -255,7 +273,7 @@ const Track = () => {
           top: '97px',
           left: markerLeft + trackOffset,
           width: '2px',
-          height: `${totalHeight}px`, // 동적으로 조절됨
+          height: `${totalHeight}px`,
           background: 'red',
           zIndex: 9999,
           pointerEvents: 'none',
@@ -281,6 +299,7 @@ const Track = () => {
       />
     </div>
   );
+
 
 };
 

@@ -75,8 +75,7 @@ const TTSGenerator = () => {
     } catch (err) {
       console.error(err);
       setError(
-        `❌ 오류: ${err.response?.status || ''} ${
-          err.response?.data?.detail || err.message
+        `❌ 오류: ${err.response?.status || ''} ${err.response?.data?.detail || err.message
         }`
       );
     } finally {
@@ -86,129 +85,73 @@ const TTSGenerator = () => {
 
   return (
     <div
-      style={{ maxWidth: '400px', margin: '40px auto', textAlign: 'center' }}
+      className="relative flex w-full min-h-screen flex-col bg-[#111118] dark group/design-root overflow-x-hidden"
+      style={{ fontFamily: "Manrope, 'Noto Sans', sans-serif" }}
     >
-      <h2>🎤 텍스트-음성 변환기</h2>
+      <div className="layout-container flex h-full grow flex-col">
+        <div className="px-6 flex flex-1 justify-center py-5">
+          <div className="layout-content-container flex flex-col w-full max-w-[920px]">
+            <h2 className="text-2xl font-bold text-white mb-6">
+              🎤 텍스트-음성 변환기
+            </h2>
 
-      {voiceOptions.map((voice) => (
-        <div
-          key={voice.id}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '10px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            {/* ← NEW: 1:1 비율, 텍스트 크기(1em)에 맞춘 썸네일 */}
-            <img
-              src={`http://175.116.3.178:8001${voice.imageUrl}`}
-              alt={`${voice.label} thumbnail`}
-              style={{
-                width: '4em',
-                height: '4em',
-                objectFit: 'cover',
-                borderRadius: '0.125em',
-                marginRight: '0.5em',
-              }}
-            />
-            <span>{voice.label}</span>
+            {voiceOptions.map(voice => (
+              <div
+                key={voice.id}
+                className="flex items-center justify-between bg-[#111118] px-4 py-2 mb-4 min-h-[72px] rounded-lg"
+              >
+                <div className="flex items-center gap-4">
+                  <img
+                    src={`http://175.116.3.178:8001${voice.imageUrl}`}
+                    alt={`${voice.label} thumbnail`}
+                    className="h-14 w-14 object-cover rounded-md"
+                  />
+                  <span className="text-white text-base font-medium">
+                    {voice.label}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openModal(voice)}
+                  className="h-8 rounded-full bg-[#2b2b36] px-4 text-sm font-medium text-white"
+                >
+                  TTS 생성
+                </button>
+              </div>
+            ))}
           </div>
-          <button
-            onClick={() => openModal(voice)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '4px',
-              border: '1px solid #000',
-              backgroundColor: '#007bff',
-              color: '#fff',
-              cursor: 'pointer',
-            }}
-          >
-            TTS 생성
-          </button>
         </div>
-      ))}
+      </div>
 
       {modalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              padding: '20px',
-              borderRadius: '8px',
-              width: '90%',
-              maxWidth: '300px',
-              textAlign: 'center',
-            }}
-          >
-            <h3>{selectedVoice.label} TTS</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#1e1e25] p-6 rounded-2xl w-[90%] max-w-[400px]">
+            <h3 className="text-lg font-bold text-white mb-4">
+              {selectedVoice.label} TTS
+            </h3>
             <textarea
               rows={4}
               value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
+              onChange={e => setTextInput(e.target.value)}
               placeholder="텍스트 입력"
-              style={{
-                width: '100%',
-                padding: '8px',
-                marginBottom: '10px',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-                resize: 'none',
-              }}
+              className="w-full h-24 resize-none rounded-md border border-[#40404f] bg-transparent px-3 py-2 text-sm text-white placeholder:text-[#a2a2b4] focus:outline-none mb-2"
             />
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+            {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
             {ttsIdResult && (
-              <p style={{ color: 'green' }}>✅ ID: {ttsIdResult}</p>
+              <p className="text-sm text-green-500 mb-2">
+                ✅ ID: {ttsIdResult}
+              </p>
             )}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginTop: '10px',
-              }}
-            >
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                style={{
-                  flex: 1,
-                  marginRight: '5px',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: 'none',
-                  background: '#007bff',
-                  color: '#fff',
-                  cursor: 'pointer',
-                }}
+                className="flex-1 h-8 rounded-full bg-[#2b2b36] px-4 text-sm font-medium text-white disabled:opacity-50"
               >
                 {loading ? '생성 중...' : '생성'}
               </button>
               <button
                 onClick={closeModal}
-                style={{
-                  flex: 1,
-                  marginLeft: '5px',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  cursor: 'pointer',
-                }}
+                className="flex-1 h-8 rounded-full bg-transparent border border-[#40404f] px-4 text-sm font-medium text-white"
               >
                 취소
               </button>
