@@ -506,6 +506,48 @@ const formatTime = (seconds) => {
   const s = (seconds % 60).toFixed(2).padStart(5, '0');
   return `${m}:${s}`;
 };
+// v2 only
+function toRelative(u) {
+  if (!u) return u;
+  try {
+    const url = new URL(u, window.location.origin);
+    const hosts = new Set(['localhost:8000', '127.0.0.1:8000', '175.116.3.178:8000']);
+    if (hosts.has(url.host)) {
+      // 서버 정적 경로만 사용하고, 이중 슬래시는 정리
+      return url.pathname.replace(/\/{2,}/g, '/');
+    }
+  } catch {
+    // 이미 상대경로인 경우: 이중 슬래시만 정리
+    return u.replace(/\/{2,}/g, '/');
+  }
+  // 외부 호스트는 원본 유지(다만 이중 슬래시 정리)
+  return u.replace(/\/{2,}/g, '/');
+}
+
+// v2 only
+function buildSubtitlesPayload(audioTracks, canvasWidth = 1280, canvasHeight = 720) {
+  const subs = [];
+  audioTracks.forEach((group, gi) => {
+    (group.tracks || []).forEach((track) => {
+      if (!track?.translatedText) return;
+      const cues = getCuesForTrack(track, group.lang);
+      const color = group.color || ['#4F46E5', '#16A34A', '#EA580C', '#9333EA', '#0EA5E9'][gi % 5];
+
+      cues.forEach((q) => {
+        subs.push({
+          text: q.text,
+          start: +q.start.toFixed(3),
+          end: +q.end.toFixed(3),
+          color,
+        });
+      });
+    });
+  });
+  // ffmpeg/ass 생성 시 안전하도록 정렬
+  subs.sort((a, b) => a.start - b.start || a.end - b.end);
+  return subs;
+}
+
 
 /* =========================================
    컴포넌트
@@ -764,43 +806,72 @@ const MergeAndPreviewPage = () => {
   /* -------------------------
      합성 및 다운로드
      ------------------------- */
-  const handleMergeClick = async () => {
-    try {
-      const vtPayload = videoTracks.map((g) => ({
-        name: g.name || '',
-        tracks: g.tracks.map((t) => ({
-          url: t.url,
-          startTime: t.startTime,
-          duration: t.duration,
-        })),
-      }));
-      const atPayload = audioTracks.map((g) => ({
-        name: g.name || '',
-        tracks: g.tracks.map((t) => ({
-          url: t.url,
-          startTime: t.startTime,
-          duration: t.duration,
-        })),
-      }));
-      const res = await fetch(`${baseUrl}merge-media`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoTracks: vtPayload,
-          audioTracks: atPayload,
-        }),
-      });
-      if (!res.ok) throw new Error('서버 요청 실패');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'merged.mp4';
-      a.click();
-    } catch (err) {
-      console.error(err);
+// v2
+const handleMergeClick = async () => {
+  try {
+    const vtPayload = videoTracks.map((g) => ({
+      name: g.name || '',
+      tracks: g.tracks.map((t) => ({
+        url: toRelative(t.url || t.file_url || t.path),
+        startTime: t.startTime,
+        duration: t.duration,
+      })),
+    }));
+
+    const atPayload = audioTracks.map((g) => ({
+      name: g.name || '',
+      tracks: g.tracks.map((t) => ({
+        url: toRelative(t.url || t.file_url || t.path),
+        startTime: t.startTime,
+        duration: t.duration,
+      })),
+    }));
+
+    const canvas = { width: 1280, height: 720 };
+    const subtitles = buildSubtitlesPayload(audioTracks, canvas.width, canvas.height);
+
+    const res = await fetch(`${baseUrl}merge-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoTracks: vtPayload, audioTracks: atPayload, canvas, subtitles }),
+    });
+
+    // ⬇⬇⬇ 여기부터 '다운로드 처리' 핵심 블록 ⬇⬇⬇
+    if (!res.ok) {
+      let msg = '서버 요청 실패';
+      try { msg = (await res.text()) || msg; } catch {}
+      throw new Error(msg);
     }
-  };
+
+    const getFilenameFromDisposition = (value) => {
+      if (!value) return null;
+      const m = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(value);
+      if (m && m[1]) return decodeURIComponent(m[1].replace(/\"/g, ''));
+      return null;
+    };
+    const cd = res.headers.get('Content-Disposition');
+    const serverFilename = getFilenameFromDisposition(cd);
+
+    const contentType = res.headers.get('Content-Type') || 'video/mp4';
+    const arrayBuffer = await res.arrayBuffer();
+    const blob = new Blob([arrayBuffer], { type: contentType });
+
+    const urlObject = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = urlObject;
+    a.download = serverFilename || 'merged.mp4';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(urlObject), 0);
+    // ⬆⬆⬆ 여기까지 ⬆⬆⬆
+  } catch (err) {
+    console.error(err);
+    alert(`다운로드 실패: ${err.message || err}`);
+  }
+};
+
+
 
   /* -------------------------
      Redux 시간 동기화(정지 시)
