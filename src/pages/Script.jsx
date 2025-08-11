@@ -13,6 +13,22 @@ const Script = () => {
 
   const [editedTexts, setEditedTexts] = useState({});
 
+  // ✅ 알림 모달 상태
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertData, setAlertData] = useState({
+    title: '',
+    message: '',
+    type: 'success', // 'success' | 'error'
+  });
+
+  // ✅ 성공 알림 자동 닫기
+  useEffect(() => {
+    if (!alertOpen) return;
+    if (alertData.type !== 'success') return;
+    const t = setTimeout(() => setAlertOpen(false), 1500);
+    return () => clearTimeout(t);
+  }, [alertOpen, alertData.type]);
+
   // ✅ useEffect로 editedTexts 초기화
   useEffect(() => {
     const valid = audioTracks
@@ -65,7 +81,13 @@ const Script = () => {
 
       const result = await res.json();
 
-
+      // ✅ 성공 알림 (먼저 띄움)
+      setAlertData({
+        title: 'TTS 수정 완료',
+        message: result?.message || '변경이 적용되었습니다.',
+        type: 'success',
+      });
+      setAlertOpen(true);
 
       // ✅ Redux store 업데이트
       dispatch({
@@ -87,17 +109,21 @@ const Script = () => {
           translatedText: result.translateText,
         },
       }));
-
-      alert(`TTS 수정 완료: ${result.message}`);
     } catch (e) {
       console.error(e);
-      alert('TTS 수정 실패: ' + e.message);
+      setAlertData({
+        title: 'TTS 수정 실패',
+        message: e.message,
+        type: 'error',
+      });
+      setAlertOpen(true);
     }
   };
 
   const validTracks = audioTracks
     .flatMap((group) => group.tracks)
-    .filter((track) => track.originalText && track.translatedText);
+    .filter((track) => track.originalText && track.translatedText)
+    .sort((a, b) => a.startTime - b.startTime); // ⬅ startTime 기준 정렬
 
   return (
     <div className="p-4 font-['Inter','Noto_Sans',sans-serif] text-white bg-[#15151e]">
@@ -157,6 +183,49 @@ const Script = () => {
           </div>
         );
       })}
+
+      {/* ───────── 알림 모달 ───────── */}
+      {alertOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#1e1e25] p-6 rounded-2xl w-[90%] max-w-[400px]">
+            <div className="flex items-start gap-3 mb-3">
+              {/* 아이콘 */}
+              <div
+                className={
+                  'mt-1 w-6 h-6 rounded-full flex items-center justify-center ' +
+                  (alertData.type === 'success' ? 'bg-green-600/20' : 'bg-red-600/20')
+                }
+              >
+                <span className={alertData.type === 'success' ? 'text-green-400' : 'text-red-400'}>
+                  {alertData.type === 'success' ? '✓' : '✕'}
+                </span>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">{alertData.title}</h3>
+                <p className="mt-1 text-sm text-[#a2a2b4] whitespace-pre-line">{alertData.message}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              {alertData.type === 'error' && (
+                <button
+                  onClick={() => setAlertOpen(false)}
+                  className="flex-1 h-9 rounded-full bg-transparent border border-[#40404f] px-4 text-sm font-medium text-white"
+                >
+                  닫기
+                </button>
+              )}
+              <button
+                onClick={() => setAlertOpen(false)}
+                className="flex-1 h-9 rounded-full bg-[#2b2b36] px-4 text-sm font-medium text-white"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -90,11 +90,11 @@ function AudioGenerator({ loggedInUser }) {
       formData.append('duration_seconds', '10');
       formData.append('prompt_influence', '0.3');
 
-      const response = await api.post('http://localhost:8002/generate-sound-effect', formData);
+      const response = await api.post('http://175.116.3.178:8002/generate-sound-effect', formData);
       const data = response.data;
       const completeUrl = data.file_url.startsWith('http')
         ? data.file_url
-        : `http://localhost:8002${data.file_url}`;
+        : `http://175.116.3.178:8002${data.file_url}`;
       setAudioUrl(completeUrl);
     } catch (err) {
       setError(

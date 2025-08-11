@@ -16,37 +16,79 @@ const CPS_MAP = {
    텍스트 분할 (문장부호 우선 → 길이 보강)
    ========================================= */
 function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
+  const MIN = Math.floor(maxCharsPerCue / 3); // 최소 길이 = 최대 길이의 1/3
   const normalized = text.replace(/\s+/g, ' ').trim();
+  const noSpaceLen = (s) => s.replace(/\s/g, '').length;
 
-  const sentenceParts = normalized
+  // 1) 문장부호 기준 1차 분할
+  const rawParts = normalized
     .split(/(?<=[.?!…。，！？,])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // 2) 너무 짧은 조각은 오른쪽으로 붙여서 최소 길이 충족
+  const mergedParts = [];
+  for (let i = 0; i < rawParts.length; i++) {
+    let cur = rawParts[i];
+    while (noSpaceLen(cur) < MIN && i < rawParts.length - 1) {
+      cur = (cur + ' ' + rawParts[i + 1]).replace(/\s+/g, ' ').trim();
+      i++;
+    }
+    mergedParts.push(cur);
+  }
+  if (
+    mergedParts.length >= 2 &&
+    noSpaceLen(mergedParts[mergedParts.length - 1]) < MIN
+  ) {
+    const last = mergedParts.pop();
+    mergedParts[mergedParts.length - 1] = (
+      mergedParts[mergedParts.length - 1] +
+      ' ' +
+      last
+    )
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // 3) 분할: "두 단어 이하"면 길어도 그대로 한 줄(한 큐)로 둠
   const chunks = [];
-  for (const sentence of sentenceParts) {
+  for (const sentence of mergedParts) {
+    const wordCount = sentence.split(/\s+/).filter(Boolean).length;
+    if (wordCount <= 2) {
+      // ✅ 새 규칙: 2 단어 이하면 분할 금지
+      chunks.push(sentence);
+      continue;
+    }
+
     if (sentence.length <= maxCharsPerCue) {
       chunks.push(sentence);
       continue;
     }
-    const words = sentence.split(/(\s+)/);
+
+    // (기존) 길이 기준 보강 분할
+    const tokens = sentence.includes(' ')
+      ? sentence.split(/(\s+)/)
+      : sentence.split('');
     let buf = '';
-    for (const w of words) {
-      if ((buf + w).trim().length > maxCharsPerCue) {
+    for (const t of tokens) {
+      const test = buf + t;
+      if (test.trim().length > maxCharsPerCue) {
         if (buf.trim()) chunks.push(buf.trim());
-        buf = w.trim();
+        buf = t.trim();
         while (buf.length > maxCharsPerCue) {
           chunks.push(buf.slice(0, maxCharsPerCue));
           buf = buf.slice(maxCharsPerCue);
         }
       } else {
-        buf += w;
+        buf = test;
       }
     }
     if (buf.trim()) chunks.push(buf.trim());
   }
+
   return chunks;
 }
+
 
 /* =========================================
    캔버스 폭 기반 줄바꿈 (픽셀 기준)
@@ -600,8 +642,8 @@ const MergeAndPreviewPage = () => {
     ctx.clearRect(0, 0, c.width, c.height);
 
     // 비디오
-    videoTracks.forEach((group) => {
-      group.tracks.forEach((track) => {
+ [...videoTracks].slice().reverse().forEach((group) => { // 3→2→1
+   group.tracks.forEach((track) => {
         const v = videoElementsRef.current[track.id];
         if (v && v.readyState >= 2) {
           ctx.drawImage(v, 0, 0, c.width, c.height);
@@ -634,8 +676,8 @@ const MergeAndPreviewPage = () => {
     setGlobalTime(currentTime);
 
     // 비디오
-    videoTracks.forEach((group) => {
-      group.tracks.forEach((track) => {
+ [...videoTracks].slice().reverse().forEach((group) => { 
+   group.tracks.forEach((track) => {
         const start = track.startTime || 0;
         const dur = track.duration || 0;
         const v = videoElementsRef.current[track.id];

@@ -199,61 +199,224 @@ const VideoTracks = () => {
     setEditingVideoName('');
   };
 
-  // 네이티브 Drop 처리 (URL만 떨어뜨릴 때 서버가 from-url로 등록해 썸네일 생성)
-  const handleDrop = async (e, groupId) => {
-    e.preventDefault();
-    const json =
-      e.dataTransfer.getData('application/json') ||
-      e.dataTransfer.getData('text/plain');
-    if (!json) return;
+  //비디오 만드는 것
+  // URL 유틸
+  const isHttp = (u) => typeof u === 'string' && /^https?:\/\//i.test(u);
+  const toAbsUrl = (u, base = API_BASE) => {
+    if (!u) return '';
+    if (isHttp(u)) return u;
+    return u.startsWith('/') ? `${base}${u}` : u;
+  };
 
-    let data;
-    try {
-      data = JSON.parse(json);
-    } catch {
+  // 비디오 메타(길이 등) 읽기
+  async function getVideoMeta(url) {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      let timeoutId;
+
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        try { video.src = ''; video.load(); } catch { }
+      };
+
+      video.preload = 'metadata';
+      video.src = url;
+
+      timeoutId = setTimeout(() => {
+        console.warn('getVideoMeta timeout');
+        cleanup();
+        resolve({ duration: 0, videoWidth: 0, videoHeight: 0 });
+      }, 8000);
+
+      video.onloadedmetadata = () => {
+        const out = {
+          duration: Number(video.duration) || 0,
+          videoWidth: video.videoWidth || 0,
+          videoHeight: video.videoHeight || 0,
+        };
+        cleanup();
+        resolve(out);
+      };
+
+      video.onerror = () => {
+        console.warn('getVideoMeta error');
+        cleanup();
+        resolve({ duration: 0, videoWidth: 0, videoHeight: 0 });
+      };
+    });
+  }
+
+  // 드래그용 스프라이트(2초 간격) 생성: 실패 시 null
+async function generateSprite(
+  url,
+  intervalSec = 2,
+  frameW = 120,
+  frameH = Math.round((120 * 9) / 16)
+) {
+  return new Promise((resolve, reject) => {
+    // 🎯 URL 유효성 검사
+    if (!url || (!url.endsWith('.mp4') && !url.endsWith('.webm'))) {
+      console.warn('generateSprite invalid URL', url);
+      resolve(null);
       return;
     }
 
-    // data.url 만 있다고 가정하고 서버에 등록
-    if (!data.url) return;
-    try {
-      const form = new FormData();
-      form.append('src_url', data.url);
-      const res = await fetch(`${API_BASE}/api/videos/from-url`, {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const info = await res.json();
-      // { id, video_url, duration, width_px, thumbnail_url, file_name }
+    const video = document.createElement('video');
+    let timeoutId;
 
-      dispatch({
-        type: 'ADD_VIDEO_TRACKS',
-        payload: {
-          trackGroupId: groupId,
-          newTracks: [
-            {
-              id: info.id || Date.now(),
-              startTime: 0,
-              duration: info.duration,
-              url: `${API_BASE}${info.video_url}`,
-              thumbnail: `${API_BASE}${info.thumbnail_url}`,
-              delayPx: 0,
-              width: info.width_px,
-            },
-          ],
-        },
-      });
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      try {
+        video.src = '';
+        video.load();
+      } catch {}
+    };
 
-      alert(
-        `"${data.fileName || info.file_name || 'video'
-        }" 을(를) 트랙 ${groupId}에 추가했습니다.` +
-        (info.duration ? ` (길이: ${info.duration.toFixed(2)}초)` : '')
-      );
-    } catch (err) {
-      console.error(err);
-      alert('URL 등록 중 오류가 발생했습니다.');
+    timeoutId = setTimeout(() => {
+      console.warn('generateSprite timeout');
+      cleanup();
+      resolve(null);
+    }, 10000);
+
+    video.crossOrigin = 'anonymous'; // CORS 허용 시 캔버스 사용 가능
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.src = url;
+
+    video.onloadedmetadata = () => {
+      const duration = Number(video.duration) || 0;
+      if (duration <= 0 || !isFinite(duration)) {
+        cleanup();
+        resolve(null);
+        return;
+      }
+
+      const count = Math.ceil(duration / intervalSec);
+      const lastSec = duration - intervalSec * (count - 1);
+      const lastW = (frameW * Math.max(0, lastSec)) / intervalSec;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(frameW * (count - 1) + Math.max(1, lastW));
+      canvas.height = frameH;
+      const ctx = canvas.getContext('2d');
+
+      let idx = 0;
+      video.onseeked = () => {
+        try {
+          const isLast = idx >= count - 1;
+          const w = isLast ? Math.max(1, Math.floor(lastW)) : frameW;
+          ctx.drawImage(
+            video,
+            0,
+            0,
+            video.videoWidth,
+            video.videoHeight,
+            idx * frameW,
+            0,
+            w,
+            frameH
+          );
+        } catch (e) {
+          console.warn('drawImage failed', e);
+          cleanup();
+          resolve(null);
+          return;
+        }
+        idx++;
+        if (idx < count) {
+          video.currentTime = Math.min(idx * intervalSec, duration);
+        } else {
+          const data = canvas.toDataURL('image/png');
+          cleanup();
+          resolve(data);
+        }
+      };
+
+      // 일부 브라우저는 loadeddata 이후 시킹이 안정적
+      video.onloadeddata = () => {
+        try {
+          video.currentTime = 0;
+        } catch {}
+      };
+    };
+
+    video.onerror = () => {
+  if (video.__errorHandled) return; // 중복 방지
+  video.__errorHandled = true;
+
+  console.warn('generateSprite video error', video.src);
+
+  video.onerror = null; // 이벤트 제거
+  video.onloadedmetadata = null;
+  video.onseeked = null;
+  video.onloadeddata = null;
+
+  cleanup();
+  reject(new Error('Video load failed'));
+};
+  });
+}
+
+
+
+  const handleDrop = async (e, groupId) => {
+    e.preventDefault();
+    const raw =
+      e.dataTransfer.getData('application/json') ||
+      e.dataTransfer.getData('text/plain');
+    if (!raw) return;
+
+    let data = {};
+    try { data = JSON.parse(raw); } catch { data = { url: raw }; }
+    if (!data?.url) return;
+
+    // 1) URL 정규화
+    const url = toAbsUrl(data.url, API_BASE);
+    // 2) 메타(길이) 확보: payload에 duration이 없으면 직접 읽음
+    let duration = Number(data.duration) || 0;
+    if (!duration) {
+      const meta = await getVideoMeta(url);
+      duration = meta.duration || 0;
     }
+    // 3) 썸네일 결정: payload 썸네일 > 스프라이트 생성 > 파형 > 플레이스홀더
+    let thumbnail =
+      (isHttp(data.thumbnailUrl) ? data.thumbnailUrl : null) ||
+      (isHttp(data.thumbnail) ? data.thumbnail : null) ||
+      null;
+    if (!thumbnail) {
+      try {
+        // 캔버스 스프라이트 생성 (코덱/시킹 실패 시 null)
+        thumbnail = await generateSprite(url);
+      } catch { /* ignore */ }
+    }
+    if (!thumbnail && data.waveformImage) {
+      thumbnail = data.waveformImage; // dataURL 허용(표시용)
+    }
+    if (!thumbnail) {
+      thumbnail = `${API_BASE}/thumbnails/audio-placeholder.png`;
+    }
+
+    // 4) width 계산: 1초=100px 규칙, 최소 150px
+    const width = Math.max(150, Math.round((duration || 1) * 100));
+
+    // 5) 아이템 추가
+    const newItem = {
+      id: Date.now(),
+      startTime: 0,
+      duration,
+      url,
+      thumbnail,   // dataURL 또는 http(s) URL
+      delayPx: 0,
+      width,
+    };
+    dispatch({
+      type: 'ADD_VIDEO_TRACKS',
+      payload: { trackGroupId: groupId, newTracks: [newItem] },
+    });
+
+    // 가벼운 로그
+    console.log(`[DROP→ADD] ${data.fileName || 'video'} into group=${groupId}, duration=${duration}s`);
   };
 
   return (
