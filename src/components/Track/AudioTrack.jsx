@@ -352,9 +352,11 @@ const AudioTracks = () => {
                       }}
                     >
                       <button
-                        onClick={() => handleUploadAudio(group.id)}
+                        onClick={() => handleDeleteGroup(group.id)}
                         style={{
-                          display: 'block',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
                           width: '100%',
                           background: 'transparent',
                           border: 'none',
@@ -364,24 +366,11 @@ const AudioTracks = () => {
                           textAlign: 'left',
                         }}
                       >
-                        Upload Audio
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGroup(group.id)}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#fca5a5',
-                          cursor: 'pointer',
-                          padding: 8,
-                          textAlign: 'left',
-                        }}
-                      >
-                        Delete Group
+                        <i className="fi fi-ss-trash-xmark"></i>
+                        Delete
                       </button>
                     </div>
+
                   )}
                 </div>
               </div>
@@ -603,13 +592,18 @@ const AudioTracks = () => {
               cursor: 'pointer',
               background: 'transparent',
               border: 'none',
-              color: '#fca5a5',
+              color: '#e5e7eb',
               padding: '6px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px', // 아이콘과 텍스트 간격
             }}
           >
-            Delete Audio Item
+            <i className="fi fi-ss-trash-xmark"></i>
+            Delete Audio
           </button>
         </div>
+
       )}
     </div>
   );

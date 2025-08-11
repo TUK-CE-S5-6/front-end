@@ -321,12 +321,7 @@ function User() {
 
 
   useEffect(() => {
-    if (!projectId) {
-      setError('projectId가 없습니다.');
-      setLoading(false);
-      return;
-    }
-    dispatch(resetUserState());
+
 
     const fetchAndDispatch = async () => {
       try {
@@ -519,7 +514,7 @@ function User() {
                     { to: '/', label: 'Home', icon: <HomeIcon /> },
                     { to: 'files', label: 'File Manager', icon: <FileIcon /> },
                     { to: 'script', label: 'Script', icon: <ScriptIcon /> },
-                    { to: 'tts2', label: 'Voice Gen', icon: <VoiceIcon /> },
+                    { to: 'tts2', label: 'Voice', icon: <VoiceIcon /> },
                     { to: 'TTSModel', label: 'Voice-Model', icon: <ModelIcon /> },
                     { to: 'Audio', label: 'Sound FX', icon: <SoundIcon /> },
                   ].map(({ to, label, icon }) => (
@@ -527,6 +522,11 @@ function User() {
                       key={to}
                       to={to}
                       end
+                      onClick={() => {
+                        if (to === '/') {
+                          dispatch(resetStore()); // Home 버튼 클릭 시 Redux 초기화
+                        }
+                      }}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-white ${isActive ? 'bg-[#2c2c3f]' : ''
                         }`

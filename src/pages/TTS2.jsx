@@ -91,9 +91,7 @@ const TTSGenerator = () => {
       <div className="layout-container flex h-full grow flex-col">
         <div className="px-6 flex flex-1 justify-center py-5">
           <div className="layout-content-container flex flex-col w-full max-w-[920px]">
-            <h2 className="text-2xl font-bold text-white mb-6">
-              🎤 텍스트-음성 변환기
-            </h2>
+
 
             {voiceOptions.map(voice => (
               <div

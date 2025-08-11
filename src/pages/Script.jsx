@@ -101,7 +101,6 @@ const Script = () => {
 
   return (
     <div className="p-4 font-['Inter','Noto_Sans',sans-serif] text-white bg-[#15151e]">
-      <h1 className="mb-6 text-2xl font-bold">📝 대본</h1>
 
       {validTracks.map((track) => {
         const { id, startTime, duration } = track;

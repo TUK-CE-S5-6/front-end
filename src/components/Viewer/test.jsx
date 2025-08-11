@@ -459,6 +459,11 @@ function drawVerticalStackWithLayout(ctx, canvasW, canvasH, layout, laneRef) {
     drawBadge(text, '#9CA3AF', Math.floor(canvasH * 0.2), canvasW * 0.6);
   }
 }
+const formatTime = (seconds) => {
+  const m = Math.floor(seconds / 60);
+  const s = (seconds % 60).toFixed(2).padStart(5, '0');
+  return `${m}:${s}`;
+};
 
 /* =========================================
    컴포넌트
@@ -475,6 +480,9 @@ const MergeAndPreviewPage = () => {
   const animationFrameRef = useRef(null);
   const playStartRef = useRef(0);
   const timeoutsRef = useRef([]);
+  // isVertical 헬퍼(선택)
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const isVertical = aspectRatio === '9:16';
 
   // 🔸 스티키 레이아웃 상태
   const laneRef = useRef({
@@ -497,6 +505,26 @@ const MergeAndPreviewPage = () => {
     });
     return max;
   }, [videoTracks, audioTracks]);
+  // [ADD] 컴포넌트 내부 최상단(다른 useState들 근처)
+  // ✅ JS 버전
+
+  // [ADD] 캔버스 내부 해상도와 컨테이너 비율 클래스
+  const getCanvasSize = () => (
+    aspectRatio === '16:9'
+      ? { width: 1280, height: 720 }
+      : { width: 1080, height: 1920 } // 쇼츠 표준
+  );
+  const { width: canvasW, height: canvasH } = getCanvasSize();
+
+  const containerAspectClass =
+    aspectRatio === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
+
+  // [ADD] 비율 변경 시 한 프레임 다시 그려주기
+  useEffect(() => {
+    drawCanvasOnce(globalTime);
+    // 스티키 레이아웃을 비율 변경 시 초기화하고 싶다면 아래 주석 해제
+    // laneRef.current = { bottomId: null, topId: null, lastTopBottom: null };
+  }, [aspectRatio]); // eslint-disable-line
 
   useEffect(() => {
     // 비디오 준비
@@ -746,83 +774,116 @@ const MergeAndPreviewPage = () => {
   }, [isPlaying]);
 
   return (
-  <div className="flex flex-col h-full box-border bg-[#15151e] text-white">
-    {/* 캔버스 영역 (1번 스타일) */}
-    <div className="relative flex-1 group bg-black">
-      <canvas
-        ref={canvasRef}
-        width={1280}
-        height={720}
-        className="absolute inset-0 w-full h-full border border-[#15151e]"
-      />
-    </div>
-
-    {/* 하단 컨트롤 바 (슬라이더 + 버튼들) */}
-    <div>
-      {/* 진행 슬라이더 */}
-      <input
-        type="range"
-        min={0}
-        max={totalDuration}
-        step="0.01"
-        value={globalTime}
-        onChange={handleSeekDrag}
-        onMouseUp={handleSeekCommit}
-        onTouchEnd={handleSeekCommit}
-        className="relative w-full accent-white mb-0.5"
-      />
-
-      {/* 컨트롤 버튼 행 */}
-      <div className="flex items-center -mt-1.5 pr-1.5">
-        {/* ▶ 재생 */}
-        <button
-          onClick={handlePlay}
-          aria-label="재생"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-0.5 -mt-0.5 mb-0.5"
+    <div className="flex flex-col h-full box-border bg-[#15151e] text-white">
+      <div className="flex-1 flex items-center justify-center bg-black overflow-hidden">
+        <div
+          className={`relative border border-[#15151e] ${aspectRatio === '9:16'
+            ? 'h-full w-auto'     // 세로(부모 높이)에 맞춰 가로가 비율로 계산됨
+            : 'w-full h-auto'     // 가로(부모 너비)에 맞춰 세로가 비율로 계산됨
+            } max-w-full max-h-full`}
+          style={{ aspectRatio: aspectRatio === '9:16' ? '9 / 16' : '16 / 9' }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6 text-white"
-            viewBox="0 0 256 256"
-            fill="currentColor"
-          >
-            <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
-          </svg>
-        </button>
-
-        {/* ⏹ 정지 */}
-        <button
-          onClick={handleStop}
-          aria-label="정지"
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-2 -mt-0.5 mb-0.5"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6 text-white"
-            viewBox="0 0 256 256"
-            fill="currentColor"
-          >
-            <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
-          </svg>
-        </button>
-
-        {/* 시간 표시 */}
-        <div className="ml-auto mr-3 text-xs text-[#f2f3f5]">
-          {globalTime.toFixed(2)}s / {totalDuration.toFixed(2)}s
+          <canvas
+            ref={canvasRef}
+            width={canvasW}
+            height={canvasH}
+            className="absolute inset-0 w-full h-full"
+          />
         </div>
+      </div>
 
-        {/* 다운로드(합성) */}
-        <button
-          onClick={handleMergeClick}
-          className="flex items-center gap-2 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors"
-        >
-          <i className="fi fi-br-download" style={{ fontSize: 16, lineHeight: 0 }} />
-          다운로드
-        </button>
+
+
+
+      {/* 하단 컨트롤 바 (슬라이더 + 버튼들) */}
+      <div>
+        {/* 진행 슬라이더 */}
+        <input
+          type="range"
+          min={0}
+          max={totalDuration}
+          step="0.01"
+          value={globalTime}
+          onChange={handleSeekDrag}
+          onMouseUp={handleSeekCommit}
+          onTouchEnd={handleSeekCommit}
+          className="relative w-full accent-white mb-0.5"
+        />
+
+        {/* 컨트롤 버튼 행 */}
+        <div className="flex items-center -mt-1.5 pr-1.5">
+          {/* ▶ 재생 */}
+          <button
+            onClick={handlePlay}
+            aria-label="재생"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-0.5 -mt-0.5 mb-0.5"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6 text-white"
+              viewBox="0 0 256 256"
+              fill="currentColor"
+            >
+              <path d="M240 128a15.74 15.74 0 01-7.6 13.51L88.32 229.65a16 16 0 01-16.2.3A15.86 15.86 0 0164 216.13V39.87a15.86 15.86 0 018.12-13.82 16 16 0 0116.2.3L232.4 114.49A15.74 15.74 0 01240 128z" />
+            </svg>
+          </button>
+
+          {/* ⏹ 정지 */}
+          <button
+            onClick={handleStop}
+            aria-label="정지"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#242447]/80 hover:bg-[#242447]/90 ml-2 -mt-0.5 mb-0.5"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6 text-white"
+              viewBox="0 0 256 256"
+              fill="currentColor"
+            >
+              <path d="M200 56H56a16 16 0 00-16 16v112a16 16 0 0016 16h144a16 16 0 0016-16V72a16 16 0 00-16-16z" />
+            </svg>
+          </button>
+          {/* [ADD] 비율 전환 버튼 그룹 */}
+          <div className="ml-2 flex overflow-hidden rounded-md border border-[#2c2c35]">
+            <button
+              onClick={() => setAspectRatio('16:9')}
+              className={`px-2 py-1 text-xs font-semibold ${aspectRatio === '16:9' ? 'bg-[#2c2c35] text-white' : 'bg-transparent text-[#c7c9d1]'
+                }`}
+              aria-pressed={aspectRatio === '16:9'}
+              title="16:9로 보기"
+            >
+              16:9
+            </button>
+            <button
+              onClick={() => setAspectRatio('9:16')}
+              className={`px-2 py-1 text-xs font-semibold border-l border-[#2c2c35] ${aspectRatio === '9:16' ? 'bg-[#2c2c35] text-white' : 'bg-transparent text-[#c7c9d1]'
+                }`}
+              aria-pressed={aspectRatio === '9:16'}
+              title="9:16(쇼츠)로 보기"
+            >
+              9:16
+            </button>
+          </div>
+
+          {/* 시간 표시 */}
+          {/* 시간 표시 */}
+          <div className="ml-auto mr-3 text-xs text-[#f2f3f5]">
+            {formatTime(globalTime)} / {formatTime(totalDuration)}
+          </div>
+
+
+          {/* 다운로드(합성) */}
+          <button
+            onClick={handleMergeClick}
+            className="flex items-center gap-2 rounded-md bg-[#242447] px-3 py-1.5 text-sm font-medium hover:bg-[#1d1d38] transition-colors"
+          >
+            <i className="fi fi-br-download" style={{ fontSize: 16, lineHeight: 0 }} />
+            다운로드
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 
 };
 

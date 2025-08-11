@@ -165,8 +165,8 @@ const VideoTracks = () => {
   const handleVolumeSliderChange = (groupId, value) =>
     setLocalVolume((prev) => ({ ...prev, [groupId]: value }));
 
- const handleVolumeSliderMouseUp = (groupId) => {
-   const vol = localVolume[groupId];
+  const handleVolumeSliderMouseUp = (groupId) => {
+    const vol = localVolume[groupId];
     if (vol != null) {
       dispatch({
         type: 'CHANGE_VIDEO_VOLUME',
@@ -344,9 +344,11 @@ const VideoTracks = () => {
                       }}
                     >
                       <button
-                        onClick={() => handleUploadVideo(group.id)}
+                        onClick={() => handleDeleteGroup(group.id)}
                         style={{
-                          display: 'block',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
                           width: '100%',
                           background: 'transparent',
                           border: 'none',
@@ -356,24 +358,11 @@ const VideoTracks = () => {
                           textAlign: 'left',
                         }}
                       >
-                        Upload Video
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGroup(group.id)}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#fca5a5',
-                          cursor: 'pointer',
-                          padding: 8,
-                          textAlign: 'left',
-                        }}
-                      >
-                        Delete Group
+                        <i className="fi fi-ss-trash-xmark"></i>
+                        Delete
                       </button>
                     </div>
+
                   )}
                 </div>
               </div>
@@ -533,11 +522,15 @@ const VideoTracks = () => {
               cursor: 'pointer',
               background: 'transparent',
               border: 'none',
-              color: '#fca5a5',
+              color: '#e5e7eb',
               padding: '6px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            Delete Video Item
+            <i className="fi fi-ss-trash-xmark"></i>
+            Delete Video
           </button>
         </div>
       )}

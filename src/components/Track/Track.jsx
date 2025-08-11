@@ -37,7 +37,7 @@ const Track = () => {
   const containerRef = useRef(null);
   const totalGroupCount = useTotalTrackGroupCount();
   const trackHeight = 100; // 한 그룹당 높이
-  const totalHeight = totalGroupCount * trackHeight + 11; // + 여유 padding
+  const totalHeight = totalGroupCount * trackHeight +11; // + 여유 padding
   useEffect(() => {
     let raf;
     if (isPlaying) {
@@ -198,11 +198,14 @@ const Track = () => {
         color: '#f2f3f5',
       }}
     >
-      {/* 🎛 상단 컨트롤 바 */}
+      {/* 🎛 상단 컨트롤 바 (항상 상단 고정) */}
       <div
         style={{
+          position: 'sticky',
           top: 0,
-          zIndex: 10,
+          left: 0,
+          right: 0,
+          zIndex: 20,
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
@@ -246,57 +249,89 @@ const Track = () => {
           <i className="fi fi-rr-video-camera-alt" style={{ fontSize: 16, lineHeight: 0 }} />
           Video
         </button>
-
-
-        
       </div>
 
-      {/* Timeline 눈금 */}
+      {/* ⏱ 타임라인 눈금 (세로 스크롤 고정, 가로는 함께 스크롤) */}
+<div
+  style={{
+    position: 'sticky',
+    top: 48,
+    zIndex: 15,
+    height: '40px',
+    width: 200 + timelineWidth,   // 왼쪽 200 + 눈금 폭
+    backgroundColor: '#15151e',
+    borderBottom: '1px solid #2b2b36',
+    display: 'flex',
+  }}
+>
+  {/* 왼쪽 200px 배경(비어있는 영역) */}
+  <div
+    style={{
+      flex: '0 0 200px',
+      backgroundColor: '#15151e',
+      borderRight: '1px solid #2b2b36',
+    }}
+  />
+
+  {/* 눈금 영역(오른쪽) — 여기에서만 눈금 렌더 */}
+  <div
+    style={{
+      flex: '0 0 auto',
+      width: timelineWidth,        // 눈금 실제 폭
+      position: 'relative',
+      overflow: 'hidden',
+    }}
+  >
+    {ticks}
+  </div>
+</div>
+
+
+
+
+      {/* 🔴 재생바 오버레이 (트랙 위로 겹치기) */}
       <div
         style={{
-          position: 'relative',
-          height: '40px',
-          width: timelineWidth,
-          marginLeft: '200px',
+          position: 'sticky',
+          top: 87,                 // 타임라인과 같은 기준선
+          zIndex: 9999,            // 트랙보다 위
+          height: 0,               // 세로 공간 차지 안 함
+          overflow: 'visible',
+          pointerEvents: 'none',   // 아래 요소 클릭 방해 X
         }}
       >
-        {ticks}
-      </div>
+        {/* 세로 빨간 선 */}
+        <div
+          style={{
+            position: 'absolute',
+            top: -5,                              // 타임라인(40px) 아래부터 시작
+            left: markerLeft + trackOffset,
+            width: 2,
+            height: `${totalHeight}px`,           // 트랙 전체 높이
+            background: 'red',
+          }}
+        />
 
+        {/* 드래그 핸들(원) */}
+        <div
+          ref={dragRef}
+          onMouseDown={handleDragStart}
+          style={{
+            position: 'absolute',
+            top: -22,                            // (타임라인 40px - 원 17px) / 2
+            left: markerLeft + trackOffset - 8,
+            width: 17,
+            height: 17,
+            borderRadius: '50%',
+            background: 'red',
+            cursor: 'pointer',
+            pointerEvents: 'auto',                // 핸들만 드래그 가능
+          }}
+        />
+      </div>
       <VideoTrack />
       <AudioTrack />
 
-      {/* 🔴 재생 바 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '97px',
-          left: markerLeft + trackOffset,
-          width: '2px',
-          height: `${totalHeight}px`,
-          background: 'red',
-          zIndex: 9999,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* 🔴 재생 바 위 원 */}
-      <div
-        ref={dragRef}
-        onMouseDown={handleDragStart}
-        style={{
-          position: 'absolute',
-          top: '80px',
-          left: markerLeft + trackOffset - 8,
-          width: '17px',
-          height: '17px',
-          borderRadius: '50%',
-          background: 'red',
-          zIndex: 10000,
-          cursor: 'pointer',
-          pointerEvents: 'auto',
-        }}
-      />
     </div>
   );
 
