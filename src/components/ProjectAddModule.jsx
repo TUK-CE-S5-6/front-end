@@ -148,8 +148,7 @@ function ProjectAddModule({ token, onProjectAdded }) {
               <option value="ko-KR">한국어</option>
               <option value="en-US">영어</option>
               <option value="ja">일본어</option>
-              <option value="zh-cn">중국어 간체</option>
-              <option value="zh-tw">중국어 번체</option>
+              <option value="zh-cn">중국어</option>
             </select>
           </div>
           <div style={styles.row}>
@@ -162,8 +161,7 @@ function ProjectAddModule({ token, onProjectAdded }) {
               <option value="en-US">영어</option>
               <option value="ko-KR">한국어</option>
               <option value="ja">일본어</option>
-              <option value="zh-cn">중국어 간체</option>
-              <option value="zh-tw">중국어 번체</option>
+              <option value="zh-cn">중국어 </option>
             </select>
           </div>
           <div style={styles.buttonRow}>

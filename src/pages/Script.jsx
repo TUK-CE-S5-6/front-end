@@ -83,7 +83,7 @@ const Script = () => {
 
       // ✅ 성공 알림 (먼저 띄움)
       setAlertData({
-        title: 'TTS 수정 완료',
+        title: '수정 완료',
         message: result?.message || '변경이 적용되었습니다.',
         type: 'success',
       });
@@ -112,7 +112,7 @@ const Script = () => {
     } catch (e) {
       console.error(e);
       setAlertData({
-        title: 'TTS 수정 실패',
+        title: '수정 실패',
         message: e.message,
         type: 'error',
       });
@@ -171,7 +171,7 @@ const Script = () => {
             <div className="flex items-center justify-between">
               <button
                 onClick={() => handleSubmit(id)}
-                className="h-8 rounded-full bg-[#2b2b36] px-4 text-sm font-medium"
+                className="h-8 rounded-full bg-[#2b2b36] hover:bg-[#1d1d38] px-4 text-sm font-medium"
               >
                 수정요청
               </button>

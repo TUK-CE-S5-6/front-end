@@ -110,7 +110,7 @@ const TTSGenerator = () => {
                 </div>
                 <button
                   onClick={() => openModal(voice)}
-                  className="h-8 rounded-full bg-[#2b2b36] px-4 text-sm font-medium text-white"
+                  className="h-8 rounded-full bg-[#2b2b36] hover:bg-[#1d1d38] px-4 text-sm font-medium text-white"
                 >
                   TTS 생성
                 </button>

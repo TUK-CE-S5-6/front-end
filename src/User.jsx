@@ -1,7 +1,6 @@
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -298,8 +297,8 @@ function User() {
   // URL 파라미터에서 projectId를 가져옵니다
   const { projectId } = useParams();
   // 상단 영역 및 하단 영역 크기 조절 관련 상태들 (splitter 관련 코드 포함)
-  const [topLeftWidth, setTopLeftWidth] = useState(860);
-  const [bottomHeight, setBottomHeight] = useState(200);
+  const [topLeftWidth, setTopLeftWidth] = useState(580);
+  const [bottomHeight, setBottomHeight] = useState(250);
   const verticalSplitterWidth = 5;
   const horizontalSplitterHeight = 5;
   const topRowRef = useRef(null);

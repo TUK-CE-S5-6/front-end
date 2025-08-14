@@ -185,20 +185,7 @@ function CreateVoiceCloneForm() {
                     className="w-full aspect-square object-cover rounded-md border border-[#2b2b36]"
                   />
 
-                  {/* (선택) 파일 정보 표시 */}
-                  <div className="flex items-center gap-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" className="text-[#c9c9d4] shrink-0">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-                        fill="none" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M14 2v6h6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                    </svg>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-white truncate" title={image.name}>{image.name}</div>
-                      <div className="text-xs text-[#9ca3af]">
-                        {image.type || 'image/*'} · {formatBytes(image.size)}
-                      </div>
-                    </div>
-                  </div>
+                  
                 </div>
               ) : (
                 <div
@@ -265,7 +252,6 @@ function CreateVoiceCloneForm() {
         </div>
 
         {/* ───────── 구분선 ───────── */}
-        <div className="border-t border-[#2b2b36]" />
 
         {/* 2) 음성 샘플 업로드 (단일 섹션) */}
         <div className="flex flex-col gap-2">
@@ -346,30 +332,28 @@ function CreateVoiceCloneForm() {
 
         {/* ───────── 구분선 ───────── */}
         <div className="border-t border-[#2b2b36]" />
+ {/* 3) 하단: (좌) 생성 완료 표시 / (우) 제출 */}
+ <div className="flex items-center justify-between">
+   {message ? (
+     <div className="text-green-400 text-sm">
+       보이스 모델 생성 완료
+     </div>
+   ) : (
+     <div></div> // 메시지 없을 땐 빈 공간
+   )}
 
-        {/* 3) 하단: (좌) 배경소음 / (우) 제출 */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-[#ddd]">
-            <input
-              id="noise"
-              type="checkbox"
-              checked={removeBackgroundNoise}
-              onChange={(e) => setRemoveBackgroundNoise(e.target.checked)}
-              className="accent-[#2b2b36]"
-            />
-            배경 소음 제거
-          </label>
+   <button
+     type="submit"
+     className="h-10 rounded-full bg-[#2b2b36] px-6 text-sm font-medium text-white hover:bg-[#242447] transition-colors"
+   >
+     모델 생성
+   </button>
+ </div>
+        
 
-          <button
-            type="submit"
-            className="h-10 rounded-full bg-[#2b2b36] px-6 text-sm font-medium text-white hover:bg-[#242447] transition-colors"
-          >
-            모델 생성
-          </button>
-        </div>
       </form>
 
-    </div>
+    </div>  
 
   );
 }

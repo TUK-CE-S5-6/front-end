@@ -22,7 +22,7 @@ function splitSmart(text, maxCharsPerCue = 72, _lang = 'ko') {
 
   // 1) 문장부호 기준 1차 분할
   const rawParts = normalized
-    .split(/(?<=[.?!…。，！？,])\s+/)
+    .split(/(?<=[.?!…。，;！？:,])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -715,6 +715,14 @@ const MergeAndPreviewPage = () => {
       (now - playStartRef.current) / 1000,
       totalDuration
     );
+     // ✅ 끝 감지: 끝나면 전파(playing=false) + time 고정
+ if (currentTime >= totalDuration - 0.0005) {
+   setGlobalTime(totalDuration);
+   store.dispatch({ type: 'SET_TIME', payload: totalDuration });
+   store.dispatch({ type: 'SET_PLAYING', payload: 0 });
+   handleStop();   // rAF 취소, 타임아웃 정리, 미디어 pause
+   return;
+ }
     setGlobalTime(currentTime);
 
     // 비디오
